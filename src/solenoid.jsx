@@ -116,7 +116,6 @@ export default function Solenoid({
             stroke-dasharray: 9 15;
             stroke-dashoffset: 0;
             animation: solenoidDashFlow 0.666667s linear infinite;
-            animation-delay: 0.3s;
             pointer-events: none;
           }
 
