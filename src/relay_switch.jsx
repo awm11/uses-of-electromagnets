@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Solenoid from "./solenoid";
 
 const C = {
   ink: "#202020",
@@ -19,6 +20,7 @@ export default function App() {
     <main className="page">
       <style>{`
         * { box-sizing: border-box; }
+
         body {
           margin: 0;
           background: #f3f5f7;
@@ -32,10 +34,25 @@ export default function App() {
             "Segoe UI",
             sans-serif;
         }
-        button { font: inherit; }
-        .page { min-height: 100vh; padding: 24px; }
-        .shell { max-width: 1160px; margin: 0 auto; }
-        .heading { margin-bottom: 18px; }
+
+        button {
+          font: inherit;
+        }
+
+        .page {
+          min-height: 100vh;
+          padding: 24px;
+        }
+
+        .shell {
+          max-width: 1160px;
+          margin: 0 auto;
+        }
+
+        .heading {
+          margin-bottom: 18px;
+        }
+
         .eyebrow {
           font-size: 12px;
           font-weight: 800;
@@ -44,17 +61,20 @@ export default function App() {
           color: #3867a8;
           margin-bottom: 4px;
         }
+
         h1 {
           margin: 0;
           font-size: clamp(28px, 4vw, 40px);
           letter-spacing: -.04em;
         }
+
         .intro {
           max-width: 780px;
           margin: 8px 0 0;
           color: ${C.muted};
           line-height: 1.5;
         }
+
         .card {
           background: #fff;
           border: 1px solid #d9dee4;
@@ -62,8 +82,17 @@ export default function App() {
           box-shadow: 0 10px 28px rgba(31, 41, 55, .07);
           overflow: hidden;
         }
-        .stage { padding: 12px; }
-        svg { display: block; width: 100%; height: auto; }
+
+        .stage {
+          padding: 12px;
+        }
+
+        svg {
+          display: block;
+          width: 100%;
+          height: auto;
+        }
+
         .controls {
           display: flex;
           align-items: center;
@@ -73,6 +102,7 @@ export default function App() {
           border-top: 1px solid #e2e6ea;
           background: #fafbfc;
         }
+
         .switchBtn {
           display: flex;
           align-items: center;
@@ -84,6 +114,7 @@ export default function App() {
           cursor: pointer;
           padding: 4px 0;
         }
+
         .toggle {
           width: 54px;
           height: 30px;
@@ -92,7 +123,11 @@ export default function App() {
           background: #c6ccd3;
           transition: .25s ease;
         }
-        .toggle.on { background: #2d9b55; }
+
+        .toggle.on {
+          background: #2d9b55;
+        }
+
         .knob {
           width: 24px;
           height: 24px;
@@ -101,7 +136,11 @@ export default function App() {
           box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
           transition: .25s ease;
         }
-        .toggle.on .knob { transform: translateX(24px); }
+
+        .toggle.on .knob {
+          transform: translateX(24px);
+        }
+
         .status {
           display: flex;
           align-items: center;
@@ -110,54 +149,72 @@ export default function App() {
           font-size: 14px;
           text-align: right;
         }
+
         .dot {
           width: 9px;
           height: 9px;
           border-radius: 50%;
           background: #a7afb8;
         }
+
         .dot.on {
           background: #2d9b55;
           box-shadow: 0 0 0 4px #dff3e6;
         }
+
         .lesson {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 14px;
           margin-top: 14px;
         }
+
         .lessonBox {
           background: #fff;
           border: 1px solid #dfe4e8;
           border-radius: 14px;
           padding: 16px 18px;
         }
+
         .lessonBox h2 {
           margin: 0 0 7px;
           font-size: 15px;
         }
+
         .lessonBox p {
           margin: 0;
           color: ${C.muted};
           line-height: 1.5;
           font-size: 14px;
         }
+
         .onText {
           color: #19743b;
           font-weight: 800;
         }
+
         .offText {
           color: #9b5d13;
           font-weight: 800;
         }
+
         @media (max-width: 760px) {
-          .page { padding: 10px; }
+          .page {
+            padding: 10px;
+          }
+
           .controls {
             align-items: flex-start;
             flex-direction: column;
           }
-          .status { text-align: left; }
-          .lesson { grid-template-columns: 1fr; }
+
+          .status {
+            text-align: left;
+          }
+
+          .lesson {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
 
@@ -250,7 +307,7 @@ export default function App() {
 
 function RelayDiagram({ on }) {
   const flow = on
-    ? "dashFlow 1s linear infinite"
+    ? "dashFlow 0.666667s linear infinite"
     : "none";
 
   return (
@@ -299,8 +356,12 @@ function RelayDiagram({ on }) {
 
         <style>{`
           @keyframes dashFlow {
+            from {
+              stroke-dashoffset: 0;
+            }
+
             to {
-              stroke-dashoffset: -36;
+              stroke-dashoffset: -24;
             }
           }
 
@@ -308,6 +369,7 @@ function RelayDiagram({ on }) {
             from {
               opacity: 0;
             }
+
             to {
               opacity: 1;
             }
@@ -315,6 +377,7 @@ function RelayDiagram({ on }) {
 
           .flow {
             stroke-dasharray: 9 15;
+            stroke-dashoffset: 0;
             animation: ${flow};
             animation-delay: ${on ? "0.3s" : "0s"};
           }
@@ -326,6 +389,7 @@ function RelayDiagram({ on }) {
       </defs>
 
       {/* background panels */}
+
       <rect
         x="18"
         y="18"
@@ -367,6 +431,7 @@ function RelayDiagram({ on }) {
       </text>
 
       {/* low current circuit */}
+
       <g
         fill="none"
         stroke={C.blue}
@@ -374,15 +439,14 @@ function RelayDiagram({ on }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M105 154 H290" />
-        <path d="M390 154 V216" />
-        <path d="M390 366 H290 V448 H105 V302" />
+        <path d="M105 154 H150 M235 154 H270 V253.5 H330" />
+        <path d="M330 406 H290 V448 H105 V302" />
         <path d="M105 283 V154" />
       </g>
 
       {on && (
         <path
-          d="M105 154 H290 M390 154 V216 M390 366 H290 V448 H105 V330 M105 250 V154"
+          d="M105 154 H270 V253.5 H330 M330 406 H290 V448 H105 V303 M105 280 V154"
           fill="none"
           stroke="#6da0ec"
           strokeWidth="3.5"
@@ -392,6 +456,7 @@ function RelayDiagram({ on }) {
       )}
 
       {/* Battery */}
+
       <g stroke={C.ink} strokeLinecap="round">
         <line
           x1="87"
@@ -420,24 +485,25 @@ function RelayDiagram({ on }) {
       </text>
 
       {/* Control switch */}
+
       <circle
-        cx="290"
+        cx="155"
         cy="154"
         r="7"
         fill={C.ink}
       />
 
       <circle
-        cx="390"
+        cx="235"
         cy="154"
         r="7"
         fill={C.ink}
       />
 
       <line
-        x1="290"
+        x1="155"
         y1="154"
-        x2={on ? 390 : 376.6}
+        x2={on ? 235 : 211.6}
         y2={on ? 154 : 104}
         stroke={C.ink}
         strokeWidth="7"
@@ -455,45 +521,20 @@ function RelayDiagram({ on }) {
         switch
       </text>
 
-      {/* Electromagnet */}
-      <g filter="url(#softShadow)">
-        <rect
-          x="338"
-          y="214"
-          width="104"
-          height="154"
-          rx="7"
-          fill="#d8dce0"
-          stroke={C.metalDark}
-          strokeWidth="2.5"
-        />
+      {/* Solenoid */}
 
-        <rect
-          x="355"
-          y="201"
-          width="73"
-          height="180"
-          rx="3"
-          fill={C.metalDark}
-        />
-
-        {[224, 244, 264, 284, 304, 324, 344].map(y => (
-          <ellipse
-            key={y}
-            cx="390"
-            cy={y}
-            rx="48"
-            ry="10"
-            fill="none"
-            stroke={C.copper}
-            strokeWidth="6"
-          />
-        ))}
-      </g>
-
-      
+      <Solenoid
+        on={on}
+        corner={{ x: 400, y: 194 }}
+        orientation={270}
+        mirror={true}
+        scale={0.9}
+        turns={10}
+        reverse={true}
+      />
 
       {/* HIGH CURRENT CIRCUIT */}
+
       <g
         fill="none"
         stroke={C.red}
@@ -517,6 +558,7 @@ function RelayDiagram({ on }) {
       )}
 
       {/* 240 V supply */}
+
       <g
         filter="url(#softShadow)"
         transform="translate(70 0)"
@@ -554,6 +596,7 @@ function RelayDiagram({ on }) {
       </text>
 
       {/* Electric shower */}
+
       <g
         filter="url(#softShadow)"
         transform="translate(70 0)"
@@ -581,6 +624,7 @@ function RelayDiagram({ on }) {
         />
 
         {/* Shower head */}
+
         <path
           d="M900 307 V270 Q900 244 927 244 H956"
           fill="none"
@@ -598,6 +642,7 @@ function RelayDiagram({ on }) {
         />
 
         {/* Falling water */}
+
         {on && (
           <g className="relay-delayed">
             {[952, 967, 982, 997].map((x, i) => (
@@ -612,7 +657,8 @@ function RelayDiagram({ on }) {
           </g>
         )}
 
-        {/* Cute little heating element */}
+        {/* Heating element */}
+
         {on ? (
           <g className="relay-delayed">
             <path
@@ -673,23 +719,25 @@ function RelayDiagram({ on }) {
       </g>
 
       <text
-          x="900"
-          y="434"
-          fontSize="16"
-          fontWeight="800"
-          fill={C.ink}
-        >
-          <tspan x="897" dy="0">
-            electric
-          </tspan>
-          <tspan x="897" dy="19">
-            shower
-          </tspan>
-        </text>
+        x="900"
+        y="434"
+        fontSize="16"
+        fontWeight="800"
+        fill={C.ink}
+      >
+        <tspan x="897" dy="0">
+          electric
+        </tspan>
+
+        <tspan x="897" dy="19">
+          shower
+        </tspan>
+      </text>
 
       {/* RELAY MECHANISM */}
 
       {/* RIGHT FIXED CONTACT ROD */}
+
       <g>
         <rect
           x="597"
@@ -723,6 +771,7 @@ function RelayDiagram({ on }) {
       </g>
 
       {/* LEFT MOVING CONTACT ROD */}
+
       <g
         style={{
           transformOrigin: "535px 470px",
@@ -778,6 +827,7 @@ function RelayDiagram({ on }) {
       </g>
 
       {/* iron armature */}
+
       <g
         style={{
           transformOrigin: "525px 180px",
@@ -822,6 +872,7 @@ function RelayDiagram({ on }) {
       </text>
 
       {/* CONTACT / MOVEMENT INDICATION */}
+
       {on ? (
         <>
           <circle
@@ -870,10 +921,8 @@ function RelayDiagram({ on }) {
       )}
 
       {/* EXPLANATORY CAPTIONS */}
-      <g
-        fontSize="15"
-        fontWeight="700"
-      >
+
+      <g fontSize="15" fontWeight="700">
         <text
           x="46"
           y="520"
