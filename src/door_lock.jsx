@@ -1060,8 +1060,8 @@ export default function DoorLock({ onBack }) {
               </text>
 
               <text
-                x="150"
-                y="185"
+                x="50"
+                y="20"
                 fontSize="18"
                 fill={C.ink}
               >
