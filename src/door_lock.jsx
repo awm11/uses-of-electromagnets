@@ -1,86 +1,505 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import Solenoid from "./solenoid.jsx";
+import magneticFieldLines from "./magneticFieldLines.png";
 
-// Electromagnetic door-lock geometry
-const LOOP_CENTERS = [655, 694, 733, 772];
-const LOOP_RX = 21;
-const LOOP_RY = 62;
-const COIL_Y = 297;
-const LEFT_TERMINAL = 623;
-const RIGHT_TERMINAL = 793;
+export function DoorLockPreview() {
+  const [switchClosed, setSwitchClosed] = useState(false);
+  const [currentOn, setCurrentOn] = useState(false);
+  const [boltAttracted, setBoltAttracted] = useState(false);
 
-function loopSegment(cx, dir) {
-  const a = cx - dir * LOOP_RX * 0.2;
-  const b = cx + dir * LOOP_RX * 0.2;
-  return `L${a},${COIL_Y} A${LOOP_RX},${LOOP_RY} 0 1 1 ${b},${COIL_Y} `;
+  useEffect(() => {
+    let timers = [];
+
+    const clearTimers = () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers = [];
+    };
+
+    const runSequence = () => {
+      clearTimers();
+
+      setSwitchClosed(false);
+      setCurrentOn(false);
+      setBoltAttracted(false);
+
+      const t1 = setTimeout(() => {
+        setSwitchClosed(true);
+      }, 3000);
+
+      const t2 = setTimeout(() => {
+        setCurrentOn(true);
+      }, 3500);
+
+      const t3 = setTimeout(() => {
+        setBoltAttracted(true);
+      }, 4300);
+
+      const t4 = setTimeout(() => {
+        setSwitchClosed(false);
+        setCurrentOn(false);
+        setBoltAttracted(false);
+      }, 7300);
+
+      timers = [t1, t2, t3, t4];
+    };
+
+    runSequence();
+
+    const interval = setInterval(runSequence, 10300);
+
+    return () => {
+      clearTimers();
+      clearInterval(interval);
+    };
+  }, []);
+
+  return (
+    <div className="doorLockPreviewOnly">
+      <style>{`
+        .doorLockPreviewOnly {
+          width: 100% !important;
+          height: 100% !important;
+          transform: none !important;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+
+        .doorLockPreviewOnly svg {
+          display: block;
+          width: 100%;
+          height: 100%;
+          max-width: none;
+          max-height: none;
+        }
+
+        .door-lock-preview-flow {
+          animation: doorLockPreviewDash 2.2s linear infinite;
+        }
+
+        @keyframes doorLockPreviewDash {
+          to {
+            stroke-dashoffset: -36px;
+          }
+        }
+      `}</style>
+
+      <svg
+        viewBox="0 0 900 500"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <linearGradient
+            id="previewIronBoltGradient"
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop offset="0%" stopColor="#4b5563" />
+            <stop offset="18%" stopColor="#9ca3af" />
+            <stop offset="42%" stopColor="#d1d5db" />
+            <stop offset="58%" stopColor="#9ca3af" />
+            <stop offset="82%" stopColor="#6b7280" />
+            <stop offset="100%" stopColor="#374151" />
+          </linearGradient>
+
+          <linearGradient
+            id="previewIronBoltEndGradient"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="0"
+          >
+            <stop offset="0%" stopColor="#374151" />
+            <stop offset="45%" stopColor="#9ca3af" />
+            <stop offset="55%" stopColor="#d1d5db" />
+            <stop offset="100%" stopColor="#4b5563" />
+          </linearGradient>
+        </defs>
+
+        {/* Door */}
+        <rect
+          x="10"
+          y="0"
+          width="120"
+          height="590"
+          fill="#b5602f"
+        />
+
+        <rect
+          x="68"
+          y="277"
+          width="62"
+          height="40"
+          fill="#5a2c12"
+        />
+
+        {/* Door frame */}
+        <rect
+          x="150"
+          y="0"
+          width="34"
+          height="300"
+          fill="#7a3a1d"
+        />
+
+        <rect
+          x="150"
+          y="318"
+          width="34"
+          height="300"
+          fill="#7a3a1d"
+        />
+
+        {/* Spring */}
+        <g
+          style={{
+            transformOrigin: "184px 336px",
+            transform: `scaleX(${boltAttracted ? 1.84 : 1})`,
+            transition:
+              "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
+          }}
+        >
+          <path
+            d="M184,336 q7,-16 14,0 t14,0 t14,0 t14,0 t14,0 t14,0"
+            fill="none"
+            stroke="#333"
+            strokeWidth="5"
+            strokeLinecap="round"
+          />
+        </g>
+
+        {/* Circuit wire */}
+        <path
+          d="M583,241 V50 H730"
+          fill="none"
+          stroke="#111827"
+          strokeWidth="4"
+        />
+
+        {currentOn && (
+          <path
+            d="M583,241 V50 H730"
+            fill="none"
+            stroke="#6b7280"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="9 15"
+            className="door-lock-preview-flow"
+          />
+        )}
+
+        {/* Battery */}
+        <g transform="translate(730,50)">
+          <text
+            x="-14"
+            y="-8"
+            fontSize="20"
+            fill="#111827"
+          >
+            +
+          </text>
+
+          <line
+            x1="0"
+            y1="-20"
+            x2="0"
+            y2="20"
+            stroke="#111827"
+            strokeWidth="5"
+          />
+
+          <text
+            x="34"
+            y="-8"
+            fontSize="14"
+            fill="#111827"
+          >
+            –
+          </text>
+
+          <line
+            x1="34"
+            y1="-10"
+            x2="34"
+            y2="10"
+            stroke="#111827"
+            strokeWidth="2.5"
+          />
+        </g>
+
+        {/* Battery to switch */}
+        <path
+          d="M764,50 H812 V150"
+          fill="none"
+          stroke="#111827"
+          strokeWidth="4"
+        />
+
+        {currentOn && (
+          <path
+            d="M764,50 H812 V150"
+            fill="none"
+            stroke="#6b7280"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="9 15"
+            className="door-lock-preview-flow"
+          />
+        )}
+
+        {/* Switch */}
+        <circle
+          cx="812"
+          cy="150"
+          r="5"
+          fill="#111827"
+        />
+
+        <circle
+          cx="812"
+          cy="200"
+          r="5"
+          fill="#111827"
+        />
+
+        <g
+          style={{
+            transformOrigin: "812px 150px",
+            transform: switchClosed
+              ? "rotate(0deg)"
+              : "rotate(-31deg)",
+            transition: "transform 1.2s ease",
+          }}
+        >
+          <line
+            x1="812"
+            y1="150"
+            x2="812"
+            y2="200"
+            stroke="#111827"
+            strokeWidth="4"
+          />
+        </g>
+
+        {/* Switch to solenoid */}
+        <path
+          d="M812,200 V230 H701 V240"
+          fill="none"
+          stroke="#111827"
+          strokeWidth="4"
+        />
+
+        {currentOn && (
+          <path
+            d="M812,200 V230 H701 V240"
+            fill="none"
+            stroke="#6b7280"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="9 15"
+            className="door-lock-preview-flow"
+          />
+        )}
+
+        {/* Magnetic field */}
+        <image
+          href={magneticFieldLines}
+          x="490"
+          y="205"
+          width="315"
+          height="185"
+          preserveAspectRatio="none"
+          style={{
+            opacity: currentOn ? 0.45 : 0,
+            transition: "opacity 0.1s ease",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Solenoid */}
+        <Solenoid
+          on={currentOn}
+          reverse={true}
+          corner={{ x: 747.5, y: 295 }}
+          orientation={0}
+          mirror={true}
+          scale={0.7}
+          turns={10}
+        />
+
+        {/* Solenoid label */}
+        <text
+          x="620"
+          y="380"
+          fontSize="18"
+          fill="#111827"
+        >
+          Solenoid
+        </text>
+
+        {/* Current indicator */}
+        {currentOn && (
+          <text
+            x="660"
+            y="130"
+            fontSize="22"
+            fill="#d97706"
+            fontWeight="600"
+          >
+            Current flowing!
+          </text>
+        )}
+
+        {/* Iron bolt */}
+        <g
+          style={{
+            transform: `translateX(${boltAttracted ? 70 : 0}px)`,
+            transition:
+              "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
+          }}
+        >
+          <rect
+            x="70"
+            y="280"
+            width="465"
+            height="34"
+            rx="3"
+            fill="url(#previewIronBoltGradient)"
+            stroke="#374151"
+            strokeWidth="1.5"
+          />
+
+          <rect
+            x="73"
+            y="283"
+            width="459"
+            height="7"
+            rx="2"
+            fill="#ffffff"
+            opacity="0.16"
+          />
+
+          <rect
+            x="73"
+            y="307"
+            width="459"
+            height="4"
+            rx="1"
+            fill="#1f2937"
+            opacity="0.28"
+          />
+
+          <rect
+            x="253"
+            y="314"
+            width="24"
+            height="30"
+            rx="2"
+            fill="url(#previewIronBoltEndGradient)"
+            stroke="#374151"
+            strokeWidth="1"
+          />
+        </g>
+      </svg>
+    </div>
+  );
 }
-
-const COIL_PATH =
-  `M${LEFT_TERMINAL},${COIL_Y} ` +
-  LOOP_CENTERS.map((cx) => loopSegment(cx, 1)).join("") +
-  `L${RIGHT_TERMINAL},${COIL_Y}`;
-
-// Magnetic field lines
-const FIELD_CENTER_X = (LEFT_TERMINAL + RIGHT_TERMINAL) / 2;
-const FIELD_OFFSETS = [-58, -36, -14, 14, 36, 58];
-const FIELD_SPREAD = 2.5;
-
-function quadPoint(p0, p1, p2, t) {
-  const mt = 1 - t;
-  return {
-    x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
-    y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y,
-  };
-}
-
-function quadTangentAngle(p0, p1, p2, t) {
-  const mt = 1 - t;
-  const dx =
-    2 * mt * (p1.x - p0.x) +
-    2 * t * (p2.x - p1.x);
-  const dy =
-    2 * mt * (p1.y - p0.y) +
-    2 * t * (p2.y - p1.y);
-  return (Math.atan2(dy, dx) * 180) / Math.PI;
-}
-
-function buildFieldLine(offset) {
-  const p0 = { x: RIGHT_TERMINAL, y: COIL_Y + offset };
-  const p1 = {
-    x: FIELD_CENTER_X,
-    y: COIL_Y + offset * FIELD_SPREAD,
-  };
-  const p2 = { x: LEFT_TERMINAL, y: COIL_Y + offset };
-
-  const d = `M${p0.x},${p0.y} Q${p1.x},${p1.y} ${p2.x},${p2.y}`;
-
-  const arrows = [0.15, 0.85].map((t) => ({
-    ...quadPoint(p0, p1, p2, t),
-    angle: quadTangentAngle(p0, p1, p2, t),
-  }));
-
-  return { d, arrows };
-}
-
-const FIELD_LINES = FIELD_OFFSETS.map(buildFieldLine);
 
 export default function DoorLock({ onBack }) {
-  const [isOn, setIsOn] = useState(false);
+  const [switchClosed, setSwitchClosed] = useState(false);
+  const [currentOn, setCurrentOn] = useState(false);
+  const [boltAttracted, setBoltAttracted] = useState(false);
+  const [labelsOn, setLabelsOn] = useState(false);
+  const [animating, setAnimating] = useState(false);
+
+  const timersRef = useRef([]);
+
+  const clearTimers = () => {
+    timersRef.current.forEach((timer) => {
+      clearTimeout(timer);
+    });
+
+    timersRef.current = [];
+  };
+
+  useEffect(() => {
+    return () => {
+      clearTimers();
+    };
+  }, []);
+
+  const handleToggle = () => {
+    if (animating) return;
+
+    clearTimers();
+    setAnimating(true);
+
+    if (!switchClosed) {
+      setSwitchClosed(true);
+
+      const currentTimer = setTimeout(() => {
+        setCurrentOn(true);
+      }, 500);
+
+      const boltTimer = setTimeout(() => {
+        setBoltAttracted(true);
+      }, 1300);
+
+      const labelTimer = setTimeout(() => {
+        setLabelsOn(true);
+        setAnimating(false);
+        timersRef.current = [];
+      }, 2100);
+
+      timersRef.current = [
+        currentTimer,
+        boltTimer,
+        labelTimer,
+      ];
+    } else {
+      setSwitchClosed(false);
+      setCurrentOn(false);
+      setBoltAttracted(false);
+
+      const labelTimer = setTimeout(() => {
+        setLabelsOn(false);
+        setAnimating(false);
+        timersRef.current = [];
+      }, 1500);
+
+      timersRef.current = [labelTimer];
+    }
+  };
 
   return (
     <div style={styles.card}>
       {onBack && (
         <div style={styles.simHeaderRow}>
-          <button style={styles.backButton} onClick={onBack}>
+          <button
+            style={styles.backButton}
+            onClick={onBack}
+            disabled={animating}
+          >
             ← Back
           </button>
         </div>
       )}
 
       <header style={styles.header}>
-        <h1 style={styles.title}>Electromagnetic Door Lock</h1>
+        <div style={styles.eyebrow}>
+          ELECTROMAGNETISM • 01
+        </div>
+
+        <h1 style={styles.title}>
+          Electromagnetic Door Lock
+        </h1>
+
         <p style={styles.subtitle}>
-          Flip the switch to close the circuit and watch the electromagnet pull
-          the iron bolt.
+          Close the circuit to energise the electromagnet
+          and attract the iron bolt.
         </p>
       </header>
 
@@ -93,46 +512,87 @@ export default function DoorLock({ onBack }) {
         >
           <style>{keyframes}</style>
 
+          <defs>
+            <linearGradient
+              id="ironBoltGradient"
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0%" stopColor="#4b5563" />
+              <stop offset="18%" stopColor="#9ca3af" />
+              <stop offset="42%" stopColor="#d1d5db" />
+              <stop offset="58%" stopColor="#9ca3af" />
+              <stop offset="82%" stopColor="#6b7280" />
+              <stop offset="100%" stopColor="#374151" />
+            </linearGradient>
+
+            <linearGradient
+              id="ironBoltEndGradient"
+              x1="0"
+              y1="0"
+              x2="1"
+              y2="0"
+            >
+              <stop offset="0%" stopColor="#374151" />
+              <stop offset="45%" stopColor="#9ca3af" />
+              <stop offset="55%" stopColor="#d1d5db" />
+              <stop offset="100%" stopColor="#4b5563" />
+            </linearGradient>
+          </defs>
+
           {/* Door */}
-          <rect x="10" y="230" width="120" height="190" fill="#b5602f" />
-          <rect x="68" y="277" width="64" height="40" fill="#5a2c12" />
+          <rect
+            x="0"
+            y="40"
+            width="135"
+            height="590"
+            fill="#b5602f"
+          />
+
+          <rect
+            x="68"
+            y="277"
+            width="67"
+            height="40"
+            fill="#5a2c12"
+          />
 
           {/* Door frame */}
-          <rect x="150" y="195" width="34" height="81" fill="#7a3a1d" />
-          <rect x="150" y="318" width="34" height="97" fill="#7a3a1d" />
+          <rect
+            x="150"
+            y="20"
+            width="34"
+            height="300"
+            fill="#7a3a1d"
+          />
 
-          {/* Iron bolt */}
-          <g
-            style={{
-              transform: `translateX(${isOn ? 70 : 0}px)`,
-              transition: "transform 0.7s cubic-bezier(.34,1.3,.4,1)",
-            }}
-          >
-            <rect
-              x="70"
-              y="280"
-              width="530"
-              height="34"
-              rx="3"
-              fill={isOn ? "#94a3b8" : "#8a8f98"}
-              stroke="#4b5563"
-              strokeWidth="1.5"
-            />
-            <rect
-              x="253"
-              y="314"
-              width="24"
-              height="30"
-              fill="#6b7280"
-            />
-          </g>
+          <rect
+            x="150"
+            y="318"
+            width="34"
+            height="300"
+            fill="#7a3a1d"
+          />
+
+          <rect
+            x="0"
+            y="-5"
+            width="184"
+            height="34"
+            fill="#7a3a1d"
+          />
 
           {/* Spring */}
           <g
             style={{
               transformOrigin: "184px 336px",
-              transform: `scaleX(${isOn ? 1.84 : 1})`,
-              transition: "transform 0.7s cubic-bezier(.34,1.3,.4,1)",
+              transform: `scaleX(${
+                boltAttracted ? 1.84 : 1
+              })`,
+              transition:
+                "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
             }}
           >
             <path
@@ -144,68 +604,96 @@ export default function DoorLock({ onBack }) {
             />
           </g>
 
-          {/* Magnetic field */}
-          <g
-            style={{
-              opacity: isOn ? 1 : 0,
-              transition: "opacity 0.5s ease",
-            }}
-          >
-            {FIELD_LINES.map((line, i) => (
-              <g key={i}>
-                <path
-                  d={line.d}
-                  fill="none"
-                  stroke="#9aa5b1"
-                  strokeWidth="1.5"
-                  strokeDasharray="1 7"
-                  strokeLinecap="round"
-                />
-
-                {line.arrows.map((a, j) => (
-                  <polygon
-                    key={j}
-                    points="-5,-4 5,0 -5,4"
-                    fill="#9aa5b1"
-                    transform={`translate(${a.x},${a.y}) rotate(${a.angle})`}
-                  />
-                ))}
-              </g>
-            ))}
-          </g>
-
-          {/* Electromagnet coil */}
-          <path
-            d={COIL_PATH}
-            fill="none"
-            stroke="#111827"
-            strokeWidth="6"
-            strokeLinecap="round"
+          {/* Solenoid */}
+          <Solenoid
+            on={currentOn}
+            reverse={true}
+            corner={{ x: 747.5, y: 295 }}
+            orientation={0}
+            mirror={true}
+            scale={0.7}
+            turns={10}
           />
 
-          {isOn && (
-            <path
-              d={COIL_PATH}
-              fill="none"
-              stroke="#6b7280"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeDasharray="9 15"
-              className="door-lock-flow"
-            />
-          )}
+          {/* Magnetic field */}
+          <image
+            href={magneticFieldLines}
+            x="490"
+            y="205"
+            width="315"
+            height="185"
+            preserveAspectRatio="none"
+            style={{
+              opacity: currentOn ? 0.45 : 0,
+              transition: "opacity 0.1s ease",
+              pointerEvents: "none",
+            }}
+          />
 
-          {/* Circuit: left coil terminal -> battery */}
+          {/* Iron bolt */}
+          <g
+            style={{
+              transform: `translateX(${
+                boltAttracted ? 70 : 0
+              }px)`,
+              transition:
+                "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
+            }}
+          >
+            <rect
+              x="70"
+              y="280"
+              width="425"
+              height="34"
+              rx="3"
+              fill="url(#ironBoltGradient)"
+              stroke="#374151"
+              strokeWidth="1.5"
+            />
+
+            <rect
+              x="73"
+              y="283"
+              width="419"
+              height="7"
+              rx="2"
+              fill="#ffffff"
+              opacity="0.16"
+            />
+
+            <rect
+              x="73"
+              y="307"
+              width="419"
+              height="4"
+              rx="1"
+              fill="#1f2937"
+              opacity="0.28"
+            />
+
+            <rect
+              x="253"
+              y="314"
+              width="24"
+              height="30"
+              rx="2"
+              fill="url(#ironBoltEndGradient)"
+              stroke="#374151"
+              strokeWidth="1"
+            />
+          </g>
+
+          {/* Circuit: solenoid to battery */}
           <path
-            d="M623,297 V70 H770"
+            d="M583,241 V50 H730"
             fill="none"
             stroke="#111827"
             strokeWidth="4"
           />
 
-          {isOn && (
+          {currentOn && (
             <path
-              d="M623,297 V70 H770"
+              d="M583,241 V50 H730"
               fill="none"
               stroke="#6b7280"
               strokeWidth="3"
@@ -216,10 +704,16 @@ export default function DoorLock({ onBack }) {
           )}
 
           {/* Battery */}
-          <g transform="translate(770,50)">
-            <text x="-14" y="-8" fontSize="20" fill="#111827">
+          <g transform="translate(730,50)">
+            <text
+              x="-14"
+              y="-8"
+              fontSize="20"
+              fill="#111827"
+            >
               +
             </text>
+
             <line
               x1="0"
               y1="-20"
@@ -229,9 +723,15 @@ export default function DoorLock({ onBack }) {
               strokeWidth="5"
             />
 
-            <text x="34" y="-8" fontSize="14" fill="#111827">
+            <text
+              x="34"
+              y="-8"
+              fontSize="14"
+              fill="#111827"
+            >
               –
             </text>
+
             <line
               x1="34"
               y1="-10"
@@ -242,17 +742,17 @@ export default function DoorLock({ onBack }) {
             />
           </g>
 
-          {/* Battery -> switch */}
+          {/* Battery to switch */}
           <path
-            d="M804,70 H852"
+            d="M764,50 H812 V150"
             fill="none"
             stroke="#111827"
             strokeWidth="4"
           />
 
-          {isOn && (
+          {currentOn && (
             <path
-              d="M804,70 H852"
+              d="M764,50 H812 V150"
               fill="none"
               stroke="#6b7280"
               strokeWidth="3"
@@ -262,16 +762,52 @@ export default function DoorLock({ onBack }) {
             />
           )}
 
+          {/* Switch contacts */}
+          <circle
+            cx="812"
+            cy="150"
+            r="5"
+            fill="#111827"
+          />
+
+          <circle
+            cx="812"
+            cy="200"
+            r="5"
+            fill="#111827"
+          />
+
+          {/* Switch lever */}
+          <g
+            style={{
+              transformOrigin: "812px 150px",
+              transform: switchClosed
+                ? "rotate(0deg)"
+                : "rotate(-31deg)",
+              transition: "transform 1.2s ease",
+            }}
+          >
+            <line
+              x1="812"
+              y1="150"
+              x2="812"
+              y2="200"
+              stroke="#111827"
+              strokeWidth="4"
+            />
+          </g>
+
+          {/* Switch to solenoid */}
           <path
-            d="M852,70 V190"
+            d="M812,200 V230 H701 V240"
             fill="none"
             stroke="#111827"
             strokeWidth="4"
           />
 
-          {isOn && (
+          {currentOn && (
             <path
-              d="M852,70 V190"
+              d="M812,200 V230 H701 V240"
               fill="none"
               stroke="#6b7280"
               strokeWidth="3"
@@ -281,64 +817,58 @@ export default function DoorLock({ onBack }) {
             />
           )}
 
-          {/* Switch */}
-          <circle cx="852" cy="190" r="5" fill="#111827" />
-          <circle cx="852" cy="240" r="5" fill="#111827" />
-
-          <line
-            x1="852"
-            y1="190"
-            x2={isOn ? 852 : 882}
-            y2={isOn ? 240 : 220}
-            stroke="#111827"
-            strokeWidth="4"
-            style={{ transition: "all 0.4s ease" }}
-          />
-
-          {/* Switch -> right coil terminal */}
-          <path
-            d="M852,240 V297 H793"
-            fill="none"
-            stroke="#111827"
-            strokeWidth="4"
-          />
-
-          {isOn && (
-            <path
-              d="M852,240 V297 H793"
-              fill="none"
-              stroke="#6b7280"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray="9 15"
-              className="door-lock-flow"
-            />
-          )}
-
-          {/* Labels */}
-          <text x="30" y="220" fontSize="18" fill="#111827">
+          {/* Permanent labels */}
+          <text
+            x="30"
+            y="220"
+            fontSize="18"
+            fill="#111827"
+          >
             Door
           </text>
 
-          <text x="150" y="185" fontSize="18" fill="#111827">
+          <text
+            x="150"
+            y="185"
+            fontSize="18"
+            fill="#111827"
+          >
             Door frame
           </text>
 
-          <text x="360" y="270" fontSize="18" fill="#111827">
+          <text
+            x="360"
+            y="270"
+            fontSize="18"
+            fill="#111827"
+          >
             Iron bolt
           </text>
 
-          <text x="660" y="380" fontSize="18" fill="#111827">
-            Coil
+          <text
+            x="620"
+            y="380"
+            fontSize="18"
+            fill="#111827"
+          >
+            Solenoid
           </text>
 
-          <text x="220" y="400" fontSize="15" fill="#374151">
-            Spring is {isOn ? "stretched" : "relaxed"}
+          {/* Spring state */}
+          <text
+            x="220"
+            y="400"
+            fontSize="15"
+            fill="#374151"
+          >
+            Spring is{" "}
+            {boltAttracted ? "stretched" : "relaxed"}
           </text>
 
-          {isOn && (
+          {/* Current indicator */}
+          {currentOn && (
             <text
-              x="700"
+              x="660"
               y="130"
               fontSize="22"
               fill="#d97706"
@@ -347,52 +877,87 @@ export default function DoorLock({ onBack }) {
               Current flowing!
             </text>
           )}
+
+          {/* Explanation */}
+          {currentOn && (
+            <text
+              x="535"
+              y="420"
+              fontSize="16"
+              fill="#19743b"
+              fontWeight="700"
+            >
+              Electromagnet attracts the iron bolt
+            </text>
+          )}
         </svg>
       </div>
 
+      {/* Controls */}
       <div style={styles.controls}>
         <button
-          onClick={() => setIsOn((v) => !v)}
           style={{
-            ...styles.switchButton,
-            background: isOn ? "#111827" : "#e5e7eb",
-            color: isOn ? "#fff" : "#111827",
+            ...styles.switchBtn,
+            opacity: animating ? 0.6 : 1,
+            cursor: animating ? "default" : "pointer",
           }}
+          onClick={handleToggle}
+          aria-pressed={switchClosed}
+          disabled={animating}
         >
-          {isOn ? "Open switch" : "Close switch"}
+          <span style={styles.switchVisual}>
+            <span
+              style={{
+                ...styles.switchTrack,
+                background: switchClosed
+                  ? "#2d9b55"
+                  : "#c7cdd4",
+              }}
+            >
+              <span
+                style={{
+                  ...styles.switchKnob,
+                  transform: switchClosed
+                    ? "translateX(28px)"
+                    : "translateX(0)",
+                }}
+              />
+            </span>
+
+            <span style={styles.switchLabels}>
+              <span
+                style={{
+                  ...styles.switchState,
+                  color: switchClosed
+                    ? "#2d9b55"
+                    : "#667085",
+                }}
+              >
+                {switchClosed ? "CLOSED" : "OPEN"}
+              </span>
+
+              <span style={styles.switchAction}>
+                {switchClosed
+                  ? "Click to open circuit"
+                  : "Click to close circuit"}
+              </span>
+            </span>
+          </span>
         </button>
 
-        <div style={styles.statusRow}>
-          <StatusPill
-            label="Circuit"
-            value={isOn ? "Closed" : "Open"}
-            on={isOn}
+        <div style={styles.status}>
+          <span
+            style={{
+              ...styles.dot,
+              ...(labelsOn ? styles.dotOn : {}),
+            }}
           />
 
-          <StatusPill
-            label="Door"
-            value={isOn ? "Unlocked" : "Locked"}
-            on={isOn}
-          />
+          {labelsOn
+            ? "Electromagnet energised • door unlocked"
+            : "Electromagnet de-energised • door locked"}
         </div>
       </div>
-    </div>
-  );
-}
-
-function StatusPill({ label, value, on }) {
-  return (
-    <div style={styles.pill}>
-      <span style={styles.pillLabel}>{label}</span>
-
-      <span
-        style={{
-          ...styles.pillValue,
-          color: on ? "#d97706" : "#374151",
-        }}
-      >
-        {value}
-      </span>
     </div>
   );
 }
@@ -405,7 +970,7 @@ const keyframes = `
   }
 
   .door-lock-flow {
-    animation: doorLockDash 1s linear infinite;
+    animation: doorLockDash 2.2s linear infinite;
   }
 `;
 
@@ -414,10 +979,10 @@ const styles = {
     width: "100%",
     maxWidth: "960px",
     margin: "0 auto",
-    background: "#ffffff",
-    borderRadius: "16px",
-    border: "1px solid #e5e7eb",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+    background: "#fff",
+    border: "1px solid #d9dee4",
+    borderRadius: "18px",
+    boxShadow: "0 10px 28px rgba(31, 41, 55, .07)",
     overflow: "hidden",
   },
 
@@ -428,7 +993,7 @@ const styles = {
   backButton: {
     border: "none",
     background: "transparent",
-    color: "#6b7280",
+    color: "#59636f",
     fontSize: "14px",
     fontWeight: 500,
     cursor: "pointer",
@@ -437,73 +1002,138 @@ const styles = {
   },
 
   header: {
-    padding: "12px 32px 8px",
+    padding: "18px 24px 8px",
+  },
+
+  eyebrow: {
+    marginBottom: "4px",
+    color: "#3867a8",
+    fontSize: "12px",
+    fontWeight: 800,
+    letterSpacing: ".12em",
+    textTransform: "uppercase",
   },
 
   title: {
     margin: 0,
-    fontSize: "24px",
-    fontWeight: 600,
-    color: "#111827",
+    color: "#202020",
+    fontSize: "clamp(28px, 4vw, 40px)",
+    lineHeight: 1.1,
+    letterSpacing: "-.04em",
+    fontWeight: 750,
   },
 
   subtitle: {
-    margin: "6px 0 0",
+    maxWidth: "780px",
+    margin: "8px 0 0",
+    color: "#59636f",
     fontSize: "14px",
-    color: "#6b7280",
-    maxWidth: "540px",
+    lineHeight: 1.5,
   },
 
   stageWrap: {
-    padding: "8px 16px",
+    padding: "12px",
   },
 
   svg: {
+    display: "block",
     width: "100%",
     height: "auto",
-    display: "block",
   },
 
   controls: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: "16px",
-    padding: "20px 32px 28px",
-    borderTop: "1px solid #f0f0ef",
+    gap: "18px",
+    padding: "16px 18px",
+    borderTop: "1px solid #e2e6ea",
+    background: "#fafbfc",
   },
 
-  switchButton: {
-    border: "none",
-    borderRadius: "999px",
-    padding: "12px 24px",
-    fontSize: "14px",
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "background 0.3s ease, color 0.3s ease",
-  },
-
-  statusRow: {
+  switchBtn: {
     display: "flex",
-    gap: "20px",
+    alignItems: "center",
+    border: 0,
+    background: "transparent",
+    color: "#202020",
+    cursor: "pointer",
+    padding: "2px 0",
+    textAlign: "left",
   },
 
-  pill: {
+  switchVisual: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+
+  switchTrack: {
+    position: "relative",
+    display: "block",
+    width: "58px",
+    height: "32px",
+    padding: "3px",
+    borderRadius: "999px",
+    boxShadow:
+      "inset 0 1px 3px rgba(15, 23, 42, .20)",
+    transition:
+      "background 1.2s ease, box-shadow .2s ease",
+  },
+
+  switchKnob: {
+    display: "block",
+    width: "26px",
+    height: "26px",
+    borderRadius: "50%",
+    background: "#ffffff",
+    border: "1px solid rgba(15, 23, 42, .08)",
+    boxShadow:
+      "0 2px 5px rgba(15, 23, 42, .24)",
+    transition:
+      "transform 1.2s cubic-bezier(.4, 0, .2, 1)",
+  },
+
+  switchLabels: {
     display: "flex",
     flexDirection: "column",
-    minWidth: "84px",
+    gap: "2px",
   },
 
-  pillLabel: {
-    fontSize: "11px",
-    color: "#9ca3af",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
+  switchState: {
+    fontSize: "12px",
+    fontWeight: 850,
+    letterSpacing: ".1em",
+    lineHeight: 1.1,
+    transition: "color .3s ease",
   },
 
-  pillValue: {
-    fontSize: "15px",
-    fontWeight: 600,
+  switchAction: {
+    color: "#667085",
+    fontSize: "12px",
+    fontWeight: 500,
+    lineHeight: 1.3,
+  },
+
+  status: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    color: "#59636f",
+    fontSize: "14px",
+    textAlign: "right",
+  },
+
+  dot: {
+    width: "9px",
+    height: "9px",
+    borderRadius: "50%",
+    background: "#a7afb8",
+    flex: "0 0 auto",
+  },
+
+  dotOn: {
+    background: "#2d9b55",
+    boxShadow: "0 0 0 4px #dff3e6",
   },
 };

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Solenoid from "./solenoid";
 
 const C = {
@@ -13,13 +13,23 @@ const C = {
   muted: "#59636f",
 };
 
-export default function App() {
+export default function App({ preview = false }) {
   const [on, setOn] = useState(false);
+
+  /*
+   * The home-page card can render only the relay mechanism.
+   * It is deliberately separate from the full lesson UI.
+   */
+  if (preview) {
+    return <RelayPreview />;
+  }
 
   return (
     <main className="page">
       <style>{`
-        * { box-sizing: border-box; }
+        * {
+          box-sizing: border-box;
+        }
 
         body {
           margin: 0;
@@ -305,6 +315,56 @@ export default function App() {
   );
 }
 
+function RelayPreview() {
+  const [previewOn, setPreviewOn] = useState(true);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPreviewOn((current) => !current);
+    }, 2000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="relayPreviewOnly">
+      <style>{`
+        .relayPreviewOnly {
+          width: 100% !important;
+          height: 100% !important;
+          transform: none !important;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: visible;
+        }
+
+        .relayPreviewOnly > svg {
+          display: block;
+          width: 100%;
+          height: 100%;
+          max-width: none;
+          max-height: none;
+        }
+
+        /* Hide preview text, but keep the 240 V label */
+        .relayPreviewOnly svg text {
+          display: none;
+        }
+
+        .relayPreviewOnly svg g[transform="translate(70 0)"] > text {
+          display: initial;
+        }
+      `}</style>
+
+      <RelayDiagram on={previewOn} />
+    </div>
+  );
+}
+/* =========================================================
+   FULL INTERACTIVE RELAY DIAGRAM
+   ========================================================= */
+
 function RelayDiagram({ on }) {
   const flow = on
     ? "dashFlow 0.666667s linear infinite"
@@ -379,7 +439,7 @@ function RelayDiagram({ on }) {
             stroke-dasharray: 9 15;
             stroke-dashoffset: 0;
             animation: ${flow};
-            animation-delay: ${on ? "0.3s" : "0s"};
+            animation-delay: ${on ? "0s" : "0s"};
           }
 
           .relay-delayed {
