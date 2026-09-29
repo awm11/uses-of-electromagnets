@@ -1,6 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
-import Solenoid from "./solenoid.jsx";
+import Solenoid from "./solenoid";
 import magneticFieldLines from "./magneticFieldLines.png";
+
+const C = {
+  ink: "#202020",
+  blue: "#2166d1",
+  blueLight: "#eaf3ff",
+  green: "#2d9b55",
+  greenLight: "#eaf7ef",
+  muted: "#59636f",
+  copper: "#b86f32",
+  metal: "#8f969d",
+  metalDark: "#555c63",
+};
 
 export function DoorLockPreview() {
   const [switchClosed, setSwitchClosed] = useState(false);
@@ -63,10 +75,10 @@ export function DoorLockPreview() {
           display: flex;
           align-items: center;
           justify-content: center;
-          overflow: hidden;
+          overflow: visible;
         }
 
-        .doorLockPreviewOnly svg {
+        .doorLockPreviewOnly > svg {
           display: block;
           width: 100%;
           height: 100%;
@@ -75,19 +87,24 @@ export function DoorLockPreview() {
         }
 
         .door-lock-preview-flow {
-          animation: doorLockPreviewDash 2.2s linear infinite;
+          animation: doorLockPreviewDash 0.666667s linear infinite;
         }
 
         @keyframes doorLockPreviewDash {
+          from {
+            stroke-dashoffset: 0;
+          }
+
           to {
-            stroke-dashoffset: -36px;
+            stroke-dashoffset: -24px;
           }
         }
       `}</style>
 
       <svg
         viewBox="0 0 900 500"
-        xmlns="http://www.w3.org/2000/svg"
+        role="img"
+        aria-label="Door lock preview"
       >
         <defs>
           <linearGradient
@@ -121,9 +138,9 @@ export function DoorLockPreview() {
 
         {/* Door */}
         <rect
-          x="10"
-          y="0"
-          width="120"
+          x="0"
+          y="40"
+          width="135"
           height="590"
           fill="#b5602f"
         />
@@ -131,7 +148,7 @@ export function DoorLockPreview() {
         <rect
           x="68"
           y="277"
-          width="62"
+          width="67"
           height="40"
           fill="#5a2c12"
         />
@@ -139,7 +156,7 @@ export function DoorLockPreview() {
         {/* Door frame */}
         <rect
           x="150"
-          y="0"
+          y="20"
           width="34"
           height="300"
           fill="#7a3a1d"
@@ -150,6 +167,14 @@ export function DoorLockPreview() {
           y="318"
           width="34"
           height="300"
+          fill="#7a3a1d"
+        />
+
+        <rect
+          x="0"
+          y="-5"
+          width="184"
+          height="34"
           fill="#7a3a1d"
         />
 
@@ -171,11 +196,11 @@ export function DoorLockPreview() {
           />
         </g>
 
-        {/* Circuit wire */}
+        {/* Main circuit */}
         <path
           d="M583,241 V50 H730"
           fill="none"
-          stroke="#111827"
+          stroke={C.ink}
           strokeWidth="4"
         />
 
@@ -197,7 +222,7 @@ export function DoorLockPreview() {
             x="-14"
             y="-8"
             fontSize="20"
-            fill="#111827"
+            fill={C.ink}
           >
             +
           </text>
@@ -207,7 +232,7 @@ export function DoorLockPreview() {
             y1="-20"
             x2="0"
             y2="20"
-            stroke="#111827"
+            stroke={C.ink}
             strokeWidth="5"
           />
 
@@ -215,7 +240,7 @@ export function DoorLockPreview() {
             x="34"
             y="-8"
             fontSize="14"
-            fill="#111827"
+            fill={C.ink}
           >
             –
           </text>
@@ -225,7 +250,7 @@ export function DoorLockPreview() {
             y1="-10"
             x2="34"
             y2="10"
-            stroke="#111827"
+            stroke={C.ink}
             strokeWidth="2.5"
           />
         </g>
@@ -234,7 +259,7 @@ export function DoorLockPreview() {
         <path
           d="M764,50 H812 V150"
           fill="none"
-          stroke="#111827"
+          stroke={C.ink}
           strokeWidth="4"
         />
 
@@ -255,14 +280,14 @@ export function DoorLockPreview() {
           cx="812"
           cy="150"
           r="5"
-          fill="#111827"
+          fill={C.ink}
         />
 
         <circle
           cx="812"
           cy="200"
           r="5"
-          fill="#111827"
+          fill={C.ink}
         />
 
         <g
@@ -279,7 +304,7 @@ export function DoorLockPreview() {
             y1="150"
             x2="812"
             y2="200"
-            stroke="#111827"
+            stroke={C.ink}
             strokeWidth="4"
           />
         </g>
@@ -288,7 +313,7 @@ export function DoorLockPreview() {
         <path
           d="M812,200 V230 H701 V240"
           fill="none"
-          stroke="#111827"
+          stroke={C.ink}
           strokeWidth="4"
         />
 
@@ -330,29 +355,6 @@ export function DoorLockPreview() {
           turns={10}
         />
 
-        {/* Solenoid label */}
-        <text
-          x="620"
-          y="380"
-          fontSize="18"
-          fill="#111827"
-        >
-          Solenoid
-        </text>
-
-        {/* Current indicator */}
-        {currentOn && (
-          <text
-            x="660"
-            y="130"
-            fontSize="22"
-            fill="#d97706"
-            fontWeight="600"
-          >
-            Current flowing!
-          </text>
-        )}
-
         {/* Iron bolt */}
         <g
           style={{
@@ -364,7 +366,7 @@ export function DoorLockPreview() {
           <rect
             x="70"
             y="280"
-            width="465"
+            width="425"
             height="34"
             rx="3"
             fill="url(#previewIronBoltGradient)"
@@ -375,7 +377,7 @@ export function DoorLockPreview() {
           <rect
             x="73"
             y="283"
-            width="459"
+            width="419"
             height="7"
             rx="2"
             fill="#ffffff"
@@ -385,7 +387,7 @@ export function DoorLockPreview() {
           <rect
             x="73"
             y="307"
-            width="459"
+            width="419"
             height="4"
             rx="1"
             fill="#1f2937"
@@ -475,665 +477,752 @@ export default function DoorLock({ onBack }) {
   };
 
   return (
-    <div style={styles.card}>
-      {onBack && (
-        <div style={styles.simHeaderRow}>
-          <button
-            style={styles.backButton}
-            onClick={onBack}
-            disabled={animating}
-          >
-            ← Back
-          </button>
-        </div>
-      )}
+    <main className="page">
+      <style>{`
+        * {
+          box-sizing: border-box;
+        }
+        html,
+        body,
+        #root {
+          margin: 0 !important;
+          width: 100%;
+          min-height: 100%;
+          background: #f3f5f7 !important;
+        }
 
-      <header style={styles.header}>
-        <div style={styles.eyebrow}>
-          ELECTROMAGNETISM • 01
-        </div>
+        body {
+          overflow-x: hidden;
+        }
 
-        <h1 style={styles.title}>
-          Electromagnetic Door Lock
-        </h1>
 
-        <p style={styles.subtitle}>
-          Close the circuit to energise the electromagnet
-          and attract the iron bolt.
-        </p>
-      </header>
+        .page {
+          min-height: 100vh;
+          padding: 24px;
+          background: #f3f5f7;
+          color: #202020;
+          font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+        }
 
-      <div style={styles.stageWrap}>
-        <svg
-          viewBox="0 0 900 500"
-          style={styles.svg}
-          role="img"
-          aria-label="Interactive electromagnetic door lock diagram"
-        >
-          <style>{keyframes}</style>
+        .shell {
+          max-width: 1160px;
+          margin: 0 auto;
+        }
 
-          <defs>
-            <linearGradient
-              id="ironBoltGradient"
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="1"
-            >
-              <stop offset="0%" stopColor="#4b5563" />
-              <stop offset="18%" stopColor="#9ca3af" />
-              <stop offset="42%" stopColor="#d1d5db" />
-              <stop offset="58%" stopColor="#9ca3af" />
-              <stop offset="82%" stopColor="#6b7280" />
-              <stop offset="100%" stopColor="#374151" />
-            </linearGradient>
+        .heading {
+          margin-bottom: 18px;
+        }
 
-            <linearGradient
-              id="ironBoltEndGradient"
-              x1="0"
-              y1="0"
-              x2="1"
-              y2="0"
-            >
-              <stop offset="0%" stopColor="#374151" />
-              <stop offset="45%" stopColor="#9ca3af" />
-              <stop offset="55%" stopColor="#d1d5db" />
-              <stop offset="100%" stopColor="#4b5563" />
-            </linearGradient>
-          </defs>
+        .eyebrow {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+          color: #3867a8;
+          margin-bottom: 4px;
+        }
 
-          {/* Door */}
-          <rect
-            x="0"
-            y="40"
-            width="135"
-            height="590"
-            fill="#b5602f"
-          />
+        .heading h1 {
+          margin: 0;
+          font-size: clamp(28px, 4vw, 40px);
+          line-height: 1.1;
+          letter-spacing: -.04em;
+        }
 
-          <rect
-            x="68"
-            y="277"
-            width="67"
-            height="40"
-            fill="#5a2c12"
-          />
+        .intro {
+          max-width: 780px;
+          margin: 8px 0 0;
+          color: ${C.muted};
+          line-height: 1.5;
+          font-size: 14px;
+        }
 
-          {/* Door frame */}
-          <rect
-            x="150"
-            y="20"
-            width="34"
-            height="300"
-            fill="#7a3a1d"
-          />
+        .card {
+          background: #fff;
+          border: 1px solid #d9dee4;
+          border-radius: 18px;
+          box-shadow: 0 10px 28px rgba(31, 41, 55, .07);
+          overflow: hidden;
+        }
 
-          <rect
-            x="150"
-            y="318"
-            width="34"
-            height="300"
-            fill="#7a3a1d"
-          />
+        .backRow {
+          padding: 14px 18px 0;
+        }
 
-          <rect
-            x="0"
-            y="-5"
-            width="184"
-            height="34"
-            fill="#7a3a1d"
-          />
+        .backButton {
+          border: 0;
+          background: transparent;
+          color: ${C.muted};
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 4px 0;
+        }
 
-          {/* Spring */}
-          <g
-            style={{
-              transformOrigin: "184px 336px",
-              transform: `scaleX(${
-                boltAttracted ? 1.84 : 1
-              })`,
-              transition:
-                "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
-            }}
-          >
-            <path
-              d="M184,336 q7,-16 14,0 t14,0 t14,0 t14,0 t14,0 t14,0"
-              fill="none"
-              stroke="#333"
-              strokeWidth="5"
-              strokeLinecap="round"
-            />
-          </g>
+        .backButton:disabled {
+          cursor: default;
+          opacity: .55;
+        }
 
-          {/* Solenoid */}
-          <Solenoid
-            on={currentOn}
-            reverse={true}
-            corner={{ x: 747.5, y: 295 }}
-            orientation={0}
-            mirror={true}
-            scale={0.7}
-            turns={10}
-          />
+        .stage {
+          padding: 12px;
+        }
 
-          {/* Magnetic field */}
-          <image
-            href={magneticFieldLines}
-            x="490"
-            y="205"
-            width="315"
-            height="185"
-            preserveAspectRatio="none"
-            style={{
-              opacity: currentOn ? 0.45 : 0,
-              transition: "opacity 0.1s ease",
-              pointerEvents: "none",
-            }}
-          />
+        .stage svg {
+          display: block;
+          width: 100%;
+          height: auto;
+        }
 
-          {/* Iron bolt */}
-          <g
-            style={{
-              transform: `translateX(${
-                boltAttracted ? 70 : 0
-              }px)`,
-              transition:
-                "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
-            }}
-          >
-            <rect
-              x="70"
-              y="280"
-              width="425"
-              height="34"
-              rx="3"
-              fill="url(#ironBoltGradient)"
-              stroke="#374151"
-              strokeWidth="1.5"
-            />
+        .controls {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          padding: 14px 18px;
+          border-top: 1px solid #e2e6ea;
+          background: #fafbfc;
+        }
 
-            <rect
-              x="73"
-              y="283"
-              width="419"
-              height="7"
-              rx="2"
-              fill="#ffffff"
-              opacity="0.16"
-            />
+        .switchBtn {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          border: 0;
+          background: transparent;
+          color: ${C.ink};
+          font-weight: 800;
+          cursor: pointer;
+          padding: 4px 0;
+        }
 
-            <rect
-              x="73"
-              y="307"
-              width="419"
-              height="4"
-              rx="1"
-              fill="#1f2937"
-              opacity="0.28"
-            />
+        .switchBtn:disabled {
+          cursor: default;
+          opacity: .6;
+        }
 
-            <rect
-              x="253"
-              y="314"
-              width="24"
-              height="30"
-              rx="2"
-              fill="url(#ironBoltEndGradient)"
-              stroke="#374151"
-              strokeWidth="1"
-            />
-          </g>
+        .toggle {
+          width: 54px;
+          height: 30px;
+          border-radius: 99px;
+          padding: 3px;
+          background: #c6ccd3;
+          transition: .25s ease;
+        }
 
-          {/* Circuit: solenoid to battery */}
-          <path
-            d="M583,241 V50 H730"
-            fill="none"
-            stroke="#111827"
-            strokeWidth="4"
-          />
+        .toggle.on {
+          background: #2d9b55;
+        }
 
-          {currentOn && (
-            <path
-              d="M583,241 V50 H730"
-              fill="none"
-              stroke="#6b7280"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray="9 15"
-              className="door-lock-flow"
-            />
+        .knob {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+          transition: .25s ease;
+        }
+
+        .toggle.on .knob {
+          transform: translateX(24px);
+        }
+
+        .status {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: ${C.muted};
+          font-size: 14px;
+          text-align: right;
+        }
+
+        .dot {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: #a7afb8;
+          flex: 0 0 auto;
+        }
+
+        .dot.on {
+          background: #2d9b55;
+          box-shadow: 0 0 0 4px #dff3e6;
+        }
+
+        .lesson {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+          margin-top: 14px;
+        }
+
+        .lessonBox {
+          background: #fff;
+          border: 1px solid #dfe4e8;
+          border-radius: 14px;
+          padding: 16px 18px;
+        }
+
+        .lessonBox h2 {
+          margin: 0 0 7px;
+          font-size: 15px;
+        }
+
+        .lessonBox p {
+          margin: 0;
+          color: ${C.muted};
+          line-height: 1.5;
+          font-size: 14px;
+        }
+
+        .onText {
+          color: #19743b;
+          font-weight: 800;
+        }
+
+        .offText {
+          color: #9b5d13;
+          font-weight: 800;
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 10px;
+          }
+
+          .controls {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .status {
+            text-align: left;
+          }
+
+          .lesson {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
+      <div className="shell">
+        <header className="heading">
+          <div className="eyebrow">
+            Electromagnetism • 01
+          </div>
+
+          <h1>Electromagnetic Door Lock</h1>
+
+          <p className="intro">
+            Close the circuit to energise the electromagnet
+            and attract the iron bolt, unlocking the door.
+          </p>
+        </header>
+
+        <section className="card">
+          {onBack && (
+            <div className="backRow">
+              <button
+                className="backButton"
+                onClick={onBack}
+                disabled={animating}
+              >
+                ← Back
+              </button>
+            </div>
           )}
 
-          {/* Battery */}
-          <g transform="translate(730,50)">
-            <text
-              x="-14"
-              y="-8"
-              fontSize="20"
-              fill="#111827"
+          <div className="stage">
+            <svg
+              viewBox="0 0 900 500"
+              role="img"
+              aria-label="Interactive electromagnetic door lock diagram"
             >
-              +
-            </text>
+              <style>{keyframes}</style>
 
-            <line
-              x1="0"
-              y1="-20"
-              x2="0"
-              y2="20"
-              stroke="#111827"
-              strokeWidth="5"
-            />
+              <defs>
+                <linearGradient
+                  id="ironBoltGradient"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor="#4b5563" />
+                  <stop offset="18%" stopColor="#9ca3af" />
+                  <stop offset="42%" stopColor="#d1d5db" />
+                  <stop offset="58%" stopColor="#9ca3af" />
+                  <stop offset="82%" stopColor="#6b7280" />
+                  <stop offset="100%" stopColor="#374151" />
+                </linearGradient>
 
-            <text
-              x="34"
-              y="-8"
-              fontSize="14"
-              fill="#111827"
-            >
-              –
-            </text>
+                <linearGradient
+                  id="ironBoltEndGradient"
+                  x1="0"
+                  y1="0"
+                  x2="1"
+                  y2="0"
+                >
+                  <stop offset="0%" stopColor="#374151" />
+                  <stop offset="45%" stopColor="#9ca3af" />
+                  <stop offset="55%" stopColor="#d1d5db" />
+                  <stop offset="100%" stopColor="#4b5563" />
+                </linearGradient>
+              </defs>
 
-            <line
-              x1="34"
-              y1="-10"
-              x2="34"
-              y2="10"
-              stroke="#111827"
-              strokeWidth="2.5"
-            />
-          </g>
-
-          {/* Battery to switch */}
-          <path
-            d="M764,50 H812 V150"
-            fill="none"
-            stroke="#111827"
-            strokeWidth="4"
-          />
-
-          {currentOn && (
-            <path
-              d="M764,50 H812 V150"
-              fill="none"
-              stroke="#6b7280"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray="9 15"
-              className="door-lock-flow"
-            />
-          )}
-
-          {/* Switch contacts */}
-          <circle
-            cx="812"
-            cy="150"
-            r="5"
-            fill="#111827"
-          />
-
-          <circle
-            cx="812"
-            cy="200"
-            r="5"
-            fill="#111827"
-          />
-
-          {/* Switch lever */}
-          <g
-            style={{
-              transformOrigin: "812px 150px",
-              transform: switchClosed
-                ? "rotate(0deg)"
-                : "rotate(-31deg)",
-              transition: "transform 1.2s ease",
-            }}
-          >
-            <line
-              x1="812"
-              y1="150"
-              x2="812"
-              y2="200"
-              stroke="#111827"
-              strokeWidth="4"
-            />
-          </g>
-
-          {/* Switch to solenoid */}
-          <path
-            d="M812,200 V230 H701 V240"
-            fill="none"
-            stroke="#111827"
-            strokeWidth="4"
-          />
-
-          {currentOn && (
-            <path
-              d="M812,200 V230 H701 V240"
-              fill="none"
-              stroke="#6b7280"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray="9 15"
-              className="door-lock-flow"
-            />
-          )}
-
-          {/* Permanent labels */}
-          <text
-            x="30"
-            y="220"
-            fontSize="18"
-            fill="#111827"
-          >
-            Door
-          </text>
-
-          <text
-            x="150"
-            y="185"
-            fontSize="18"
-            fill="#111827"
-          >
-            Door frame
-          </text>
-
-          <text
-            x="360"
-            y="270"
-            fontSize="18"
-            fill="#111827"
-          >
-            Iron bolt
-          </text>
-
-          <text
-            x="620"
-            y="380"
-            fontSize="18"
-            fill="#111827"
-          >
-            Solenoid
-          </text>
-
-          {/* Spring state */}
-          <text
-            x="220"
-            y="400"
-            fontSize="15"
-            fill="#374151"
-          >
-            Spring is{" "}
-            {boltAttracted ? "stretched" : "relaxed"}
-          </text>
-
-          {/* Current indicator */}
-          {currentOn && (
-            <text
-              x="660"
-              y="130"
-              fontSize="22"
-              fill="#d97706"
-              fontWeight="600"
-            >
-              Current flowing!
-            </text>
-          )}
-
-          {/* Explanation */}
-          {currentOn && (
-            <text
-              x="535"
-              y="420"
-              fontSize="16"
-              fill="#19743b"
-              fontWeight="700"
-            >
-              Electromagnet attracts the iron bolt
-            </text>
-          )}
-        </svg>
-      </div>
-
-      {/* Controls */}
-      <div style={styles.controls}>
-        <button
-          style={{
-            ...styles.switchBtn,
-            opacity: animating ? 0.6 : 1,
-            cursor: animating ? "default" : "pointer",
-          }}
-          onClick={handleToggle}
-          aria-pressed={switchClosed}
-          disabled={animating}
-        >
-          <span style={styles.switchVisual}>
-            <span
-              style={{
-                ...styles.switchTrack,
-                background: switchClosed
-                  ? "#2d9b55"
-                  : "#c7cdd4",
-              }}
-            >
-              <span
-                style={{
-                  ...styles.switchKnob,
-                  transform: switchClosed
-                    ? "translateX(28px)"
-                    : "translateX(0)",
-                }}
+              {/* Door */}
+              <rect
+                x="0"
+                y="40"
+                width="135"
+                height="590"
+                fill="#b5602f"
               />
-            </span>
 
-            <span style={styles.switchLabels}>
-              <span
+              <rect
+                x="68"
+                y="277"
+                width="67"
+                height="40"
+                fill="#5a2c12"
+              />
+
+              {/* Door frame */}
+              <rect
+                x="150"
+                y="20"
+                width="34"
+                height="300"
+                fill="#7a3a1d"
+              />
+
+              <rect
+                x="150"
+                y="318"
+                width="34"
+                height="300"
+                fill="#7a3a1d"
+              />
+
+              <rect
+                x="0"
+                y="-5"
+                width="184"
+                height="34"
+                fill="#7a3a1d"
+              />
+
+              {/* Spring */}
+              <g
                 style={{
-                  ...styles.switchState,
-                  color: switchClosed
-                    ? "#2d9b55"
-                    : "#667085",
+                  transformOrigin: "184px 336px",
+                  transform: `scaleX(${boltAttracted ? 1.84 : 1})`,
+                  transition:
+                    "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
                 }}
               >
-                {switchClosed ? "CLOSED" : "OPEN"}
+                <path
+                  d="M184,336 q7,-16 14,0 t14,0 t14,0 t14,0 t14,0 t14,0"
+                  fill="none"
+                  stroke="#333"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                />
+              </g>
+
+              {/* Main circuit */}
+              <path
+                d="M583,241 V50 H730"
+                fill="none"
+                stroke={C.ink}
+                strokeWidth="4"
+              />
+
+              {currentOn && (
+                <path
+                  d="M583,241 V50 H730"
+                  fill="none"
+                  stroke="#6b7280"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray="9 15"
+                  className="door-lock-flow"
+                />
+              )}
+
+              {/* Battery */}
+              <g transform="translate(730,50)">
+                <text
+                  x="-14"
+                  y="-8"
+                  fontSize="20"
+                  fill={C.ink}
+                >
+                  +
+                </text>
+
+                <line
+                  x1="0"
+                  y1="-20"
+                  x2="0"
+                  y2="20"
+                  stroke={C.ink}
+                  strokeWidth="5"
+                />
+
+                <text
+                  x="34"
+                  y="-8"
+                  fontSize="14"
+                  fill={C.ink}
+                >
+                  –
+                </text>
+
+                <line
+                  x1="34"
+                  y1="-10"
+                  x2="34"
+                  y2="10"
+                  stroke={C.ink}
+                  strokeWidth="2.5"
+                />
+              </g>
+
+              {/* Battery to switch */}
+              <path
+                d="M764,50 H812 V150"
+                fill="none"
+                stroke={C.ink}
+                strokeWidth="4"
+              />
+
+              {currentOn && (
+                <path
+                  d="M764,50 H812 V150"
+                  fill="none"
+                  stroke="#6b7280"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray="9 15"
+                  className="door-lock-flow"
+                />
+              )}
+
+              {/* Switch */}
+              <circle
+                cx="812"
+                cy="150"
+                r="5"
+                fill={C.ink}
+              />
+
+              <circle
+                cx="812"
+                cy="200"
+                r="5"
+                fill={C.ink}
+              />
+
+              <g
+                style={{
+                  transformOrigin: "812px 150px",
+                  transform: switchClosed
+                    ? "rotate(0deg)"
+                    : "rotate(-31deg)",
+                  transition: "transform 1.2s ease",
+                }}
+              >
+                <line
+                  x1="812"
+                  y1="150"
+                  x2="812"
+                  y2="200"
+                  stroke={C.ink}
+                  strokeWidth="4"
+                />
+              </g>
+
+              {/* Switch to solenoid */}
+              <path
+                d="M812,200 V230 H701 V240"
+                fill="none"
+                stroke={C.ink}
+                strokeWidth="4"
+              />
+
+              {currentOn && (
+                <path
+                  d="M812,200 V230 H701 V240"
+                  fill="none"
+                  stroke="#6b7280"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray="9 15"
+                  className="door-lock-flow"
+                />
+              )}
+
+              {/* Magnetic field */}
+              <image
+                href={magneticFieldLines}
+                x="490"
+                y="205"
+                width="315"
+                height="185"
+                preserveAspectRatio="none"
+                style={{
+                  opacity: currentOn ? 0.45 : 0,
+                  transition: "opacity 0.1s ease",
+                  pointerEvents: "none",
+                }}
+              />
+
+              {/* Solenoid */}
+              <Solenoid
+                on={currentOn}
+                reverse={true}
+                corner={{ x: 747.5, y: 295 }}
+                orientation={0}
+                mirror={true}
+                scale={0.7}
+                turns={10}
+              />
+
+              {/* Iron bolt */}
+              <g
+                style={{
+                  transform: `translateX(${
+                    boltAttracted ? 70 : 0
+                  }px)`,
+                  transition:
+                    "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
+                }}
+              >
+                <rect
+                  x="70"
+                  y="280"
+                  width="425"
+                  height="34"
+                  rx="3"
+                  fill="url(#ironBoltGradient)"
+                  stroke="#374151"
+                  strokeWidth="1.5"
+                />
+
+                <rect
+                  x="73"
+                  y="283"
+                  width="419"
+                  height="7"
+                  rx="2"
+                  fill="#ffffff"
+                  opacity="0.16"
+                />
+
+                <rect
+                  x="73"
+                  y="307"
+                  width="419"
+                  height="4"
+                  rx="1"
+                  fill="#1f2937"
+                  opacity="0.28"
+                />
+
+                <rect
+                  x="253"
+                  y="314"
+                  width="24"
+                  height="30"
+                  rx="2"
+                  fill="url(#ironBoltEndGradient)"
+                  stroke="#374151"
+                  strokeWidth="1"
+                />
+              </g>
+
+              {/* Labels */}
+              <text
+                x="30"
+                y="220"
+                fontSize="18"
+                fill={C.ink}
+              >
+                Door
+              </text>
+
+              <text
+                x="150"
+                y="185"
+                fontSize="18"
+                fill={C.ink}
+              >
+                Door frame
+              </text>
+
+              <text
+                x="360"
+                y="270"
+                fontSize="18"
+                fill={C.ink}
+              >
+                Iron bolt
+              </text>
+
+              <text
+                x="620"
+                y="380"
+                fontSize="18"
+                fill={C.ink}
+              >
+                Solenoid
+              </text>
+
+              {/* Spring state */}
+              <text
+                x="220"
+                y="400"
+                fontSize="15"
+                fill={C.muted}
+              >
+                Spring is{" "}
+                {boltAttracted ? "stretched" : "relaxed"}
+              </text>
+
+              {/* Current indicator */}
+              {currentOn && (
+                <text
+                  x="660"
+                  y="130"
+                  fontSize="22"
+                  fill="#d97706"
+                  fontWeight="600"
+                >
+                  Current flowing!
+                </text>
+              )}
+
+              {/* Explanation */}
+              {currentOn && (
+                <text
+                  x="535"
+                  y="420"
+                  fontSize="16"
+                  fill="#19743b"
+                  fontWeight="700"
+                >
+                  Electromagnet attracts the iron bolt
+                </text>
+              )}
+            </svg>
+          </div>
+
+          <div className="controls">
+            <button
+              className="switchBtn"
+              onClick={handleToggle}
+              aria-pressed={switchClosed}
+              disabled={animating}
+            >
+              <span
+                className={
+                  "toggle " + (switchClosed ? "on" : "")
+                }
+              >
+                <span className="knob" />
               </span>
 
-              <span style={styles.switchAction}>
-                {switchClosed
-                  ? "Click to open circuit"
-                  : "Click to close circuit"}
-              </span>
-            </span>
-          </span>
-        </button>
+              {switchClosed
+                ? "Switch closed"
+                : "Switch open"}
+            </button>
 
-        <div style={styles.status}>
-          <span
-            style={{
-              ...styles.dot,
-              ...(labelsOn ? styles.dotOn : {}),
-            }}
-          />
+            <div className="status">
+              <span
+                className={
+                  "dot " + (labelsOn ? "on" : "")
+                }
+              />
 
-          {labelsOn
-            ? "Electromagnet energised • door unlocked"
-            : "Electromagnet de-energised • door locked"}
-        </div>
+              {labelsOn
+                ? "Electromagnet energised • door unlocked"
+                : "Electromagnet de-energised • door locked"}
+            </div>
+          </div>
+        </section>
+
+        <section className="lesson">
+          <div className="lessonBox">
+            <h2>1. The control circuit</h2>
+
+            <p>
+              {currentOn ? (
+                <>
+                  The switch is closed, so current flows
+                  through the coil. The coil becomes an{" "}
+                  <span className="onText">
+                    electromagnet
+                  </span>
+                  .
+                </>
+              ) : (
+                <>
+                  Open the switch and current stops flowing
+                  through the coil. The electromagnet is then{" "}
+                  <span className="offText">off</span>.
+                </>
+              )}
+            </p>
+          </div>
+
+          <div className="lessonBox">
+            <h2>2. The locking mechanism</h2>
+
+            <p>
+              {boltAttracted ? (
+                <>
+                  The electromagnet attracts the iron bolt,
+                  stretching the spring and moving the bolt
+                  away from the door frame. The door is{" "}
+                  <span className="onText">unlocked</span>.
+                </>
+              ) : (
+                <>
+                  The spring holds the iron bolt against the
+                  door frame, keeping the door{" "}
+                  <span className="offText">locked</span>.
+                </>
+              )}
+            </p>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
 const keyframes = `
   @keyframes doorLockDash {
+    from {
+      stroke-dashoffset: 0;
+    }
+
     to {
-      stroke-dashoffset: -36px;
+      stroke-dashoffset: -24px;
     }
   }
 
   .door-lock-flow {
-    animation: doorLockDash 2.2s linear infinite;
+    stroke-dasharray: 9 15;
+    stroke-dashoffset: 0;
+    animation: doorLockDash 0.666667s linear infinite;
   }
 `;
-
-const styles = {
-  card: {
-    width: "100%",
-    maxWidth: "960px",
-    margin: "0 auto",
-    background: "#fff",
-    border: "1px solid #d9dee4",
-    borderRadius: "18px",
-    boxShadow: "0 10px 28px rgba(31, 41, 55, .07)",
-    overflow: "hidden",
-  },
-
-  simHeaderRow: {
-    padding: "16px 20px 0",
-  },
-
-  backButton: {
-    border: "none",
-    background: "transparent",
-    color: "#59636f",
-    fontSize: "14px",
-    fontWeight: 500,
-    cursor: "pointer",
-    padding: "6px 8px",
-    borderRadius: "8px",
-  },
-
-  header: {
-    padding: "18px 24px 8px",
-  },
-
-  eyebrow: {
-    marginBottom: "4px",
-    color: "#3867a8",
-    fontSize: "12px",
-    fontWeight: 800,
-    letterSpacing: ".12em",
-    textTransform: "uppercase",
-  },
-
-  title: {
-    margin: 0,
-    color: "#202020",
-    fontSize: "clamp(28px, 4vw, 40px)",
-    lineHeight: 1.1,
-    letterSpacing: "-.04em",
-    fontWeight: 750,
-  },
-
-  subtitle: {
-    maxWidth: "780px",
-    margin: "8px 0 0",
-    color: "#59636f",
-    fontSize: "14px",
-    lineHeight: 1.5,
-  },
-
-  stageWrap: {
-    padding: "12px",
-  },
-
-  svg: {
-    display: "block",
-    width: "100%",
-    height: "auto",
-  },
-
-  controls: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "18px",
-    padding: "16px 18px",
-    borderTop: "1px solid #e2e6ea",
-    background: "#fafbfc",
-  },
-
-  switchBtn: {
-    display: "flex",
-    alignItems: "center",
-    border: 0,
-    background: "transparent",
-    color: "#202020",
-    cursor: "pointer",
-    padding: "2px 0",
-    textAlign: "left",
-  },
-
-  switchVisual: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-
-  switchTrack: {
-    position: "relative",
-    display: "block",
-    width: "58px",
-    height: "32px",
-    padding: "3px",
-    borderRadius: "999px",
-    boxShadow:
-      "inset 0 1px 3px rgba(15, 23, 42, .20)",
-    transition:
-      "background 1.2s ease, box-shadow .2s ease",
-  },
-
-  switchKnob: {
-    display: "block",
-    width: "26px",
-    height: "26px",
-    borderRadius: "50%",
-    background: "#ffffff",
-    border: "1px solid rgba(15, 23, 42, .08)",
-    boxShadow:
-      "0 2px 5px rgba(15, 23, 42, .24)",
-    transition:
-      "transform 1.2s cubic-bezier(.4, 0, .2, 1)",
-  },
-
-  switchLabels: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-  },
-
-  switchState: {
-    fontSize: "12px",
-    fontWeight: 850,
-    letterSpacing: ".1em",
-    lineHeight: 1.1,
-    transition: "color .3s ease",
-  },
-
-  switchAction: {
-    color: "#667085",
-    fontSize: "12px",
-    fontWeight: 500,
-    lineHeight: 1.3,
-  },
-
-  status: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    color: "#59636f",
-    fontSize: "14px",
-    textAlign: "right",
-  },
-
-  dot: {
-    width: "9px",
-    height: "9px",
-    borderRadius: "50%",
-    background: "#a7afb8",
-    flex: "0 0 auto",
-  },
-
-  dotOn: {
-    background: "#2d9b55",
-    boxShadow: "0 0 0 4px #dff3e6",
-  },
-};
