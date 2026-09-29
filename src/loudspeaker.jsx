@@ -286,10 +286,9 @@ const PR = PLOT.x + PLOT.w - 24;
 const PM = PLOT.y + PLOT.h / 2 + 8;
 const PA = 56;
 
-export default function ACCircuit({ onBack }) {
-  const [sig, setSig] = useState("2");
+export default function ACCircuit({ onBack, disableSound = false }) {  const [sig, setSig] = useState("2");
   const [mode, setMode] = useState("changing");
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(true);
   const [audioStarted, setAudioStarted] =
     useState(false);
 
@@ -319,6 +318,7 @@ export default function ACCircuit({ onBack }) {
   const readoutRef = useRef(null);
 
   useEffect(() => {
+      if (disableSound) return;
     const start = () => {
       const a = audioRef.current;
 
@@ -401,7 +401,7 @@ export default function ACCircuit({ onBack }) {
 
       audioRef.current = {};
     };
-  }, []);
+  }, [disableSound]);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -1999,7 +1999,7 @@ export function LoudspeakerPreview() {
       `}</style>
 
       <div className="loudspeakerPreview">
-        <ACCircuit />
+        <ACCircuit disableSound />
       </div>
     </>
   );
