@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import DoorLock, { DoorLockPreview } from "./door_lock.jsx";
 import RelaySwitch from "./relay_switch.jsx";
 import CircuitBreaker from "./circuit_breaker.jsx";
+import Loudspeaker, { LoudspeakerPreview } from "./loudspeaker.jsx";
 import BuyMeCoffeeButton from "./BuyMeCoffee.jsx";
 
 export default function App() {
@@ -46,6 +47,15 @@ export default function App() {
     );
   }
 
+  if (page === "loudspeaker") {
+    return (
+      <div className="app">
+        {backButton}
+        <Loudspeaker />
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <style>{`
@@ -75,6 +85,19 @@ export default function App() {
           min-height: 100vh;
           background: #f7f8fa;
         }
+        
+        .loudspeakerIllustration {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .loudspeakerPreviewOnly {
+          display: block;
+          width: 100%;
+          height: 100%;
+        }
+
 
         .simpleHeader {
           position: relative;
@@ -428,6 +451,21 @@ export default function App() {
           }
         }
 
+        /* Loudspeaker */
+
+        .loudspeakerIllustration {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f1f3f5;
+        }
+
+        .loudspeakerPlaceholder {
+          color: #98a2b3;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
         /* Support */
 
         .supportSection {
@@ -585,7 +623,7 @@ export default function App() {
           <h1>Uses of electromagnets</h1>
 
           <p>
-            Explore three everyday applications of electromagnets.
+            Explore four everyday applications of electromagnets.
           </p>
         </div>
       </header>
@@ -701,6 +739,38 @@ export default function App() {
               <p>
                 See how an electromagnet can detect excessive current and
                 disconnect a circuit.
+              </p>
+
+              <div className="openLesson">
+                Explore lesson
+                <span>→</span>
+              </div>
+            </div>
+          </button>
+
+          {/* Loudspeaker */}
+
+          <button
+            className="lessonCard"
+            onClick={() => openLesson("loudspeaker")}
+          >
+            <div className="cardTop">
+              <span className="number">04</span>
+              <span className="cardArrow">→</span>
+            </div>
+
+            <div className="cardIllustration loudspeakerIllustration">
+              <LoudspeakerPreview />
+            </div>
+
+            <div className="cardContent">
+              <div className="cardTag">SOUND</div>
+
+              <h3>Loudspeaker</h3>
+
+              <p>
+                Explore how an electromagnet converts electrical signals
+                into vibrations that produce sound.
               </p>
 
               <div className="openLesson">
