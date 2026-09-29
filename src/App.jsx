@@ -574,7 +574,7 @@ export default function App() {
           href="https://awm11.github.io/"
           aria-label="Visit AWM Physics home"
         >
-          <img src="public/favicon.svg" alt="" />
+          <img src="favicon.svg" alt="" />
         </a>
 
         <div className="simpleHeaderInner">
