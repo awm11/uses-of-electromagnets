@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 const C = {
   ink: "#202020",
@@ -286,7 +288,300 @@ const PR = PLOT.x + PLOT.w - 24;
 const PM = PLOT.y + PLOT.h / 2 + 8;
 const PA = 56;
 
-export default function ACCircuit({ onBack, disableSound = false }) {  const [sig, setSig] = useState("2");
+// ---------------------------------------------------------------------------
+// 3D cutaway speaker (three.js)
+// Ring-magnet motor: back plate with centre pole, ring magnet, top plate, basket,
+// voice coil on a former, cone, dust cap and surround. A wedge is cut away and the
+// wedge turns to face the camera, so the inside is always visible as you orbit.
+// Axis of the speaker is the local Y axis; the whole thing is rotated onto world X.
+// ---------------------------------------------------------------------------
+const CUT_WIDTH = (100 * Math.PI) / 180; // angular width of the cutaway wedge
+const PHI0 = CUT_WIDTH / 2;
+const PHI_LEN = Math.PI * 2 - CUT_WIDTH;
+const CONE_TRAVEL = 0.07; // axial travel of the cone per unit of current (3D units)
+
+const ensureCCW = (pts) => {
+  let a = 0;
+  for (let k = 0; k < pts.length; k++) {
+    const p = pts[k];
+    const q = pts[(k + 1) % pts.length];
+    a += p[0] * q[1] - q[0] * p[1];
+  }
+  return a < 0 ? pts.slice().reverse() : pts;
+};
+
+const rectProfile = (r0, r1, y0, y1) => [
+  [r0, y0],
+  [r1, y0],
+  [r1, y1],
+  [r0, y1],
+];
+
+// Surface of revolution from a closed (r, y) profile, with flat shading per edge
+function latheGeometry(profile, phiStart, phiLength, segments) {
+  const pos = [];
+  const nor = [];
+  const idx = [];
+
+  for (let e = 0; e < profile.length; e++) {
+    const a = profile[e];
+    const b = profile[(e + 1) % profile.length];
+    const dr = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dr, dy);
+    if (len < 1e-6) continue;
+
+    const nr = dy / len;
+    const ny = -dr / len;
+    const base = pos.length / 3;
+
+    for (let s = 0; s <= segments; s++) {
+      const phi = phiStart + (phiLength * s) / segments;
+      const sn = Math.sin(phi);
+      const cs = Math.cos(phi);
+      pos.push(a[0] * sn, a[1], a[0] * cs, b[0] * sn, b[1], b[0] * cs);
+      nor.push(nr * sn, ny, nr * cs, nr * sn, ny, nr * cs);
+    }
+
+    for (let s = 0; s < segments; s++) {
+      const i = base + s * 2;
+      idx.push(i, i + 2, i + 1, i + 1, i + 2, i + 3);
+    }
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  g.setIndex(idx);
+  return g;
+}
+
+const SURROUND_PROFILE = (() => {
+  const c = [1.45, 1.235];
+  const outer = [];
+  const inner = [];
+  for (let k = 0; k <= 8; k++) {
+    const th = Math.PI - (k * Math.PI) / 8;
+    outer.push([c[0] + 0.075 * Math.cos(th), c[1] + 0.075 * Math.sin(th)]);
+  }
+  for (let k = 8; k >= 0; k--) {
+    const th = Math.PI - (k * Math.PI) / 8;
+    inner.push([c[0] + 0.055 * Math.cos(th), c[1] + 0.055 * Math.sin(th)]);
+  }
+  return outer.concat(inner);
+})();
+
+const DOME_PROFILE = (() => {
+  const outer = [];
+  const inner = [];
+  for (let k = 0; k <= 8; k++) {
+    const th = (k * Math.PI) / 16;
+    outer.push([0.36 * Math.cos(th), 0.74 + 0.16 * Math.sin(th)]);
+  }
+  for (let k = 8; k >= 0; k--) {
+    const th = (k * Math.PI) / 16;
+    inner.push([0.345 * Math.cos(th), 0.74 + 0.145 * Math.sin(th)]);
+  }
+  return outer.concat(inner);
+})();
+
+// Voice-coil windings: ten turns, drawn as a saw-tooth outer surface
+const WINDINGS_PROFILE = (() => {
+  const pts = [[0.35, 0.3]];
+  for (let k = 0; k < 10; k++) {
+    const y0 = 0.3 + k * 0.028;
+    pts.push([0.4, y0], [0.4, y0 + 0.02], [0.385, y0 + 0.022], [0.385, y0 + 0.028]);
+  }
+  pts.push([0.35, 0.58]);
+  return pts;
+})();
+
+function buildSpeaker() {
+  const root = new THREE.Group();
+  root.rotation.z = -Math.PI / 2; // local +Y (the axis) -> world +X
+  root.position.x = -0.75;
+
+  const spin = new THREE.Group(); // turned about the axis so the cutaway faces the camera
+  const moving = new THREE.Group(); // cone, dust cap, former and coil
+  root.add(spin);
+  spin.add(moving);
+
+  const geos = [];
+  const mats = [];
+  const flex = [];
+
+  const part = (parent, profile, color, o = {}) => {
+    const pts = ensureCCW(profile);
+    const body = new THREE.MeshStandardMaterial({
+      color,
+      metalness: o.metal ?? 0.3,
+      roughness: o.rough ?? 0.55,
+      side: THREE.DoubleSide,
+    });
+    const cut = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(color).offsetHSL(0, 0, 0.12),
+      metalness: 0,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+    mats.push(body, cut);
+
+    const meshes = [new THREE.Mesh(latheGeometry(pts, PHI0, PHI_LEN, 56), body)];
+    const shape = new THREE.Shape(pts.map((p) => new THREE.Vector2(p[0], p[1])));
+
+    // Flat cross-section faces on both edges of the cutaway wedge
+    [PHI0, PHI0 + PHI_LEN].forEach((phi) => {
+      const cap = new THREE.Mesh(new THREE.ShapeGeometry(shape), cut);
+      cap.rotation.y = phi - Math.PI / 2;
+      meshes.push(cap);
+    });
+
+    meshes.forEach((m) => {
+      m.frustumCulled = false;
+      parent.add(m);
+      geos.push(m.geometry);
+      if (o.flex) {
+        m.geometry.userData.base = m.geometry.attributes.position.array.slice();
+        flex.push(m.geometry);
+      }
+    });
+  };
+
+  // --- Magnetic motor (static) ---
+  // Back plate with centre pole (N, joined to the N face of the ring magnet)
+  part(spin, [[0, 0], [0.9, 0], [0.9, 0.12], [0.28, 0.12], [0.28, 0.54], [0, 0.54]], "#7f8891", { metal: 0.5 });
+  // Ring magnet: N half against the back plate, S half against the top plate
+  part(spin, rectProfile(0.55, 0.9, 0.12, 0.27), "#c94b3d");
+  part(spin, rectProfile(0.55, 0.9, 0.27, 0.42), "#2b6fd6");
+  // Top plate (S): its hole leaves the annular gap around the centre pole
+  part(spin, rectProfile(0.42, 0.9, 0.42, 0.54), "#a4acb5", { metal: 0.5 });
+
+  // --- Basket and surround (static) ---
+  part(spin, [[0.88, 0.5], [0.92, 0.5], [1.52, 1.2], [1.48, 1.2]], "#8f969d");
+  part(spin, rectProfile(1.44, 1.66, 1.2, 1.26), "#8f969d");
+  part(spin, SURROUND_PROFILE, "#4b5563", { rough: 0.8, flex: true });
+
+  // --- Moving assembly ---
+  part(moving, [[0.36, 0.74], [0.4, 0.74], [1.4, 1.22], [1.36, 1.22]], "#ece7dd", { metal: 0, rough: 0.85 });
+  part(moving, DOME_PROFILE, "#cfc8bb", { metal: 0, rough: 0.8 });
+  part(moving, rectProfile(0.33, 0.35, 0.3, 0.74), "#d8d2c6", { metal: 0, rough: 0.7 });
+  part(moving, WINDINGS_PROFILE, "#b86f32", { metal: 0.6, rough: 0.4 });
+
+  // Surround flexes: its inner edge follows the cone, its outer edge stays on the basket
+  const flexTo = (d) => {
+    flex.forEach((g) => {
+      const pos = g.attributes.position;
+      const base = g.userData.base;
+      for (let v = 0; v < pos.count; v++) {
+        const r = Math.hypot(base[3 * v], base[3 * v + 2]);
+        const w = Math.min(1, Math.max(0, (1.53 - r) / 0.15));
+        pos.setY(v, base[3 * v + 1] + d * w);
+      }
+      pos.needsUpdate = true;
+    });
+  };
+
+  const dispose = () => {
+    geos.forEach((g) => g.dispose());
+    mats.forEach((m) => m.dispose());
+  };
+
+  return { root, spin, moving, flexTo, dispose };
+}
+
+function Speaker3D({ signalRef }) {
+  const mountRef = useRef(null);
+
+  useEffect(() => {
+    const el = mountRef.current;
+    let renderer;
+
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (err) {
+      return undefined; // no WebGL: leave the window empty
+    }
+
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x000000, 0);
+    renderer.domElement.style.cssText = "display:block;width:100%;height:100%;touch-action:none";
+    el.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8894a3, 0.6));
+    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    key.position.set(3, 4, 5);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+    fill.position.set(-4, -2, -3);
+    scene.add(fill);
+
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
+    camera.position.set(2.6, 1.9, 6.1);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enableZoom = false; // keep the page scrollable
+    controls.enablePan = false;
+
+    const speaker = buildSpeaker();
+    scene.add(speaker.root);
+
+    const resize = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    };
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(el);
+    resize();
+
+    // The wedge is centred on the direction from the axis towards the camera
+    const facing = () => Math.atan2(-camera.position.y, camera.position.z);
+    let spinAngle = facing();
+    speaker.spin.rotation.y = spinAngle;
+
+    let raf;
+    const loop = () => {
+      controls.update();
+
+      if (Math.hypot(camera.position.y, camera.position.z) > 0.25) {
+        let diff = facing() - spinAngle;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        spinAngle += diff * 0.12;
+        speaker.spin.rotation.y = spinAngle;
+      }
+
+      // Cone, coil and surround follow the live current
+      const d = (signalRef.current || 0) * CONE_TRAVEL;
+      speaker.moving.position.y = d;
+      speaker.flexTo(d);
+
+      renderer.render(scene, camera);
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      controls.dispose();
+      speaker.dispose();
+      renderer.dispose();
+      if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
+    };
+  }, [signalRef]);
+
+  return <div ref={mountRef} className="speaker3d" />;
+}
+
+export default function ACCircuit({ onBack, disableSound = false, disable3D = false }) {
+  const [sig, setSig] = useState("2");
   const [mode, setMode] = useState("changing");
   const [muted, setMuted] = useState(true);
   const [audioStarted, setAudioStarted] =
@@ -316,6 +611,7 @@ export default function ACCircuit({ onBack, disableSound = false }) {  const [si
   const stopRefs = useRef([]);
   const dirRef = useRef(null);
   const readoutRef = useRef(null);
+  const signalRef = useRef(0); // live current, shared with the 3D view
 
   useEffect(() => {
       if (disableSound) return;
@@ -487,6 +783,7 @@ export default function ACCircuit({ onBack, disableSound = false }) {  const [si
       }
 
       const i = currentAt(t);
+      signalRef.current = i;
 
       const pts = new Array(N + 1);
 
@@ -657,11 +954,9 @@ export default function ACCircuit({ onBack, disableSound = false }) {  const [si
       }
 
       const dir =
-        Math.abs(i) < 0.05
-          ? "Current is momentarily zero"
-          : i > 0
-            ? "Current flows one way"
-            : "Current flows the other way";
+        i >= 0
+          ? "Current flows one way"
+          : "Current flows the other way";
 
       if (dir !== lastDir) {
         dirRef.current.textContent =
@@ -845,6 +1140,37 @@ export default function ACCircuit({ onBack, disableSound = false }) {  const [si
           padding: 14px 18px;
           border-top: 1px solid #e2e6ea;
           background: #fafbfc;
+        }
+
+        .stageInner {
+          position: relative;
+        }
+
+        .viewer3d {
+          position: absolute;
+          border: 1px solid #d9dee4;
+          border-radius: 12px;
+          background: #f7f8fa;
+          overflow: hidden;
+        }
+
+        .speaker3d {
+          width: 100%;
+          height: 100%;
+          cursor: grab;
+        }
+
+        .speaker3d:active {
+          cursor: grabbing;
+        }
+
+        .viewerLabel {
+          position: absolute;
+          left: 10px;
+          bottom: 7px;
+          color: ${C.muted};
+          font-size: 12px;
+          pointer-events: none;
         }
 
         .readout {
@@ -1072,8 +1398,9 @@ export default function ACCircuit({ onBack, disableSound = false }) {  const [si
           )}
 
           <div className="stage">
+            <div className="stageInner">
             <svg
-              viewBox="0 0 1150 550"
+              viewBox={disable3D ? "0 0 1150 550" : "0 -50 1150 600"}
               role="img"
               aria-label="Alternating current circuit with a live current plot, a speaker and air particles"
             >
@@ -1273,7 +1600,7 @@ export default function ACCircuit({ onBack, disableSound = false }) {  const [si
               />
 
               <path
-                d="M130,377 V440 H372 V396 H424"
+                d="M130,377 V440 H372 V395 H434"
                 fill="none"
                 stroke="#dc2626"
                 strokeWidth="4.5"
@@ -1285,7 +1612,7 @@ export default function ACCircuit({ onBack, disableSound = false }) {  const [si
               />
 
               <path
-                d="M424,294 H372 V250 H130 V313"
+                d="M434,295 H372 V250 H130 V313"
                 fill="none"
                 stroke="#dc2626"
                 strokeWidth="4.5"
@@ -1714,9 +2041,26 @@ export default function ACCircuit({ onBack, disableSound = false }) {  const [si
                 fill={C.muted}
                 textAnchor="middle"
               >
-                Current is momentarily zero
+                Current flows one way
               </text>
             </svg>
+              {!disable3D && (
+                <div
+                  className="viewer3d"
+                  style={{
+                    left: "60.87%",
+                    top: "1.67%",
+                    width: "38.26%",
+                    height: "33%",
+                  }}
+                >
+                  <Speaker3D signalRef={signalRef} />
+                  <span className="viewerLabel">
+                    3D cutaway • drag to rotate
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="signalBar">
@@ -1999,7 +2343,7 @@ export function LoudspeakerPreview() {
       `}</style>
 
       <div className="loudspeakerPreview">
-        <ACCircuit disableSound />
+        <ACCircuit disableSound disable3D />
       </div>
     </>
   );

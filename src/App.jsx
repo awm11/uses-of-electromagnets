@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import DoorLock, { DoorLockPreview } from "./door_lock.jsx";
 import RelaySwitch from "./relay_switch.jsx";
-import CircuitBreaker from "./circuit_breaker.jsx";
+import CircuitBreaker, { CircuitBreakerPreview } from "./circuit_breaker.jsx";
 import Loudspeaker, { LoudspeakerPreview } from "./loudspeaker.jsx";
 import BuyMeCoffeeButton from "./BuyMeCoffee.jsx";
 
 export default function App() {
   const [page, setPage] = useState("home");
+
+  const lessonCount = 4;
+  const showCoffeeAsCard = lessonCount % 3 !== 0;
 
   const openLesson = (lesson) => {
     setPage(lesson);
@@ -85,7 +88,7 @@ export default function App() {
           min-height: 100vh;
           background: #f7f8fa;
         }
-        
+
         .loudspeakerIllustration {
           display: flex;
           align-items: center;
@@ -97,7 +100,6 @@ export default function App() {
           width: 100%;
           height: 100%;
         }
-
 
         .simpleHeader {
           position: relative;
@@ -354,101 +356,18 @@ export default function App() {
           pointer-events: none;
         }
 
-        /* Circuit breaker illustration */
+        /* Circuit breaker preview */
 
         .circuitBreakerIllustration {
+          display: flex;
+          align-items: center;
+          justify-content: center;
           background: #f1f3f5;
         }
 
-        .breakerBox {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: 210px;
-          height: 150px;
-          transform: translate(-50%, -50%);
-          border: 5px solid #475467;
-          border-radius: 10px;
-          background: #ffffff;
-        }
-
-        .breakerCoil {
-          position: absolute;
-          left: 24px;
-          top: 35px;
-          display: flex;
-          gap: 5px;
-        }
-
-        .breakerCoil i {
-          display: block;
-          width: 14px;
-          height: 52px;
-          border: 4px solid #667085;
-          border-radius: 8px;
-        }
-
-        .breakerArm {
-          position: absolute;
-          right: 28px;
-          top: 62px;
-          width: 70px;
-          height: 8px;
-          border-radius: 5px;
-          background: #344054;
-          transform: rotate(-20deg);
-          transform-origin: right center;
-        }
-
-        .breakerContact {
-          position: absolute;
-          right: 18px;
-          top: 43px;
-          width: 13px;
-          height: 13px;
-          border-radius: 50%;
-          background: #344054;
-        }
-
-        .breakerSpark {
-          position: absolute;
-          right: 13px;
-          top: 82px;
-          color: #667085;
-          font-size: 27px;
-        }
-
-        .breakerPulse {
-          position: absolute;
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #98a2b3;
-          animation: breakerPulse 1.8s ease-in-out infinite;
-        }
-
-        .breakerPulse1 {
-          left: 18%;
-          top: 30%;
-        }
-
-        .breakerPulse2 {
-          right: 18%;
-          bottom: 25%;
-          animation-delay: 0.7s;
-        }
-
-        @keyframes breakerPulse {
-          0%,
-          100% {
-            opacity: 0.25;
-            transform: scale(0.8);
-          }
-
-          50% {
-            opacity: 1;
-            transform: scale(1.25);
-          }
+        .circuitBreakerIllustration > * {
+          width: 100%;
+          height: 100%;
         }
 
         /* Loudspeaker */
@@ -464,6 +383,127 @@ export default function App() {
           color: #98a2b3;
           font-size: 13px;
           font-weight: 600;
+        }
+
+        /* Support card */
+
+        .supportCard {
+          cursor: default;
+        }
+
+        .supportCard:hover {
+          transform: scale(1.025);
+        }
+
+        .supportCardIllustration {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f3f5f7;
+        }
+
+        .supportCardContent {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+          padding: 18px 20px;
+          text-align: center;
+        }
+
+        .supportCardMainLogoLink {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 82px;
+          height: 82px;
+          margin-bottom: 18px;
+          border-radius: 18px;
+          background: #ffffff;
+          box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+          text-decoration: none;
+          transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+        }
+
+        .supportCardMainLogoLink:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 7px 18px rgba(15, 23, 42, 0.12);
+        }
+
+        .supportCardMainLogo {
+          display: block;
+          width: 62px;
+          height: 62px;
+          object-fit: contain;
+          transition:
+            transform 0.2s ease,
+            filter 0.2s ease;
+        }
+
+        .supportCardMainLogoLink:hover .supportCardMainLogo {
+          transform: scale(1.08) rotate(4deg);
+        }
+
+        .supportCardMainLogoLink:focus-visible {
+          outline: 3px solid rgba(37, 99, 235, 0.22);
+          outline-offset: 3px;
+          border-radius: 8px;
+        }
+
+        .supportCardContent .cardTag {
+          margin-bottom: 6px;
+        }
+
+        .supportCardContent h3 {
+          margin: 0;
+          color: #172033;
+          font-size: 20px;
+          line-height: 1.2;
+          font-weight: 700;
+        }
+
+        .supportCardContent p {
+          margin: 8px auto 0;
+          max-width: 280px;
+          color: #667085;
+          font-size: 13px;
+          line-height: 1.55;
+        }
+
+        .supportCardAction {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding-top: 30px;
+          padding-bottom: 20px;
+          gap: 8px;
+        }
+
+        .supportCardActionLabel {
+          margin: 0;
+          color: #667085;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+
+        /*
+         * Buy Me a Coffee hover effect.
+         * This targets the button/link rendered by BuyMeCoffeeButton.
+         */
+        .supportCardAction > *:last-child {
+          transition:
+            transform 0.2s ease,
+            filter 0.2s ease;
+          transform-origin: center;
+        }
+
+        .supportCardAction > *:last-child:hover {
+          transform: scale(1.06);
         }
 
         /* Support */
@@ -610,7 +650,7 @@ export default function App() {
         <a
           className="siteLogo"
           href="https://awm11.github.io/"
-          aria-label="Visit AWM Physics home"
+          aria-label="See other physics simulations"
         >
           <img src="favicon.svg" alt="" />
         </a>
@@ -714,21 +754,7 @@ export default function App() {
             </div>
 
             <div className="cardIllustration circuitBreakerIllustration">
-              <div className="breakerBox">
-                <div className="breakerCoil">
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </div>
-
-                <div className="breakerArm" />
-                <div className="breakerContact" />
-                <div className="breakerSpark">✦</div>
-              </div>
-
-              <div className="breakerPulse breakerPulse1" />
-              <div className="breakerPulse breakerPulse2" />
+              <CircuitBreakerPreview />
             </div>
 
             <div className="cardContent">
@@ -779,12 +805,60 @@ export default function App() {
               </div>
             </div>
           </button>
+
+          {/* Buy Me a Coffee */}
+
+          {showCoffeeAsCard && (
+            <div className="lessonCard supportCard">
+              <div className="cardTop">
+                <span className="number">05</span>
+              </div>
+
+              <div className="cardIllustration supportCardIllustration">
+                <div className="supportCardContent">
+                  <a
+                    className="supportCardMainLogoLink"
+                    href="https://awm11.github.io/"
+                    aria-label="See other physics simulations"
+                  >
+                    <img
+                      className="supportCardMainLogo"
+                      src="favicon.svg"
+                      alt=""
+                    />
+                  </a>
+
+                  <div className="cardTag">MORE SIMULATIONS</div>
+
+                  <h3>See other simulations</h3>
+
+                  <p>
+                    Click the icon above to explore other interactive
+                    physics simulations like this one.
+                  </p>
+                </div>
+              </div>
+
+              <div className="cardContent supportCardAction">
+                <p className="supportCardActionLabel">
+                  Support the project
+                </p>
+
+                <BuyMeCoffeeButton />
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="supportSection">
-          <p className="supportText">Support this project</p>
-          <BuyMeCoffeeButton />
-        </div>
+        {!showCoffeeAsCard && (
+          <div className="supportSection">
+            <p className="supportText">
+              Support the project with a coffee
+            </p>
+
+            <BuyMeCoffeeButton />
+          </div>
+        )}
       </main>
     </div>
   );

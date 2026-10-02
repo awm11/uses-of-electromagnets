@@ -1,4 +1,3 @@
-
 import React from "react";
 
 export default function Solenoid({
@@ -29,6 +28,32 @@ export default function Solenoid({
   const rearLeadX = lastTurnX - 5;
   const frontLeadX = 66.5;
 
+  // Core geometry: a rod running the length of the coil. The front end
+  // (left) is square-cornered on the rect itself; the ellipse's centre
+  // line sits exactly on that square edge, so only the ellipse's near
+  // half pokes out as a rounded nose and its far half is hidden inside
+  // the rect. The rear end (right, no ellipse) is the one rounded end.
+  // Only the nose (ellipse) end is shortened; the rear keeps its
+  // original length.
+  // Shifts the whole rod (body, glint and end face) along its axis.
+  const coreShift = 4;
+  const coreLeft = 11.4 + coreShift; // 10% shorter overhang past the first turn
+  const coreTop = -18;
+  const coreBottom = 18;
+  const coreRearRadius = 18; // half the core height: a full rounded cap
+  const coreRearOverhang = 14; // unchanged from the original artwork
+  const coreRight = lastTurnX + coreRearOverhang + coreShift;
+  const coreNoseRadius = 6; // ellipse rx: how far the nose pokes out
+
+  // A back turn sweeps from the top of the coil, round the back, to the
+  // bottom. The last one is the exception: the wire arrives there from
+  // the straight rear lead at mid height, so only its lower half exists
+  // (that lower half is this curve split at its midpoint).
+  const rearTurnPath = (x, isLast) =>
+    isLast && count > 1
+      ? `M${x - 18},0 C${x - 18},17 ${x - 12},34 ${x},34`
+      : `M${x},-34 C${x - 24},-34 ${x - 24},34 ${x},34`;
+
   // Apply the reverse class to every animated current path.
   const currentFlowClass = `solenoid-current-flow${
     reverse ? " solenoid-current-flow-reverse" : ""
@@ -45,6 +70,12 @@ export default function Solenoid({
       aria-label="Copper solenoid coil around a thin core"
     >
       <defs>
+        {/*
+         * Iron, not steel: warm grey with a brown/umber cast, a muted
+         * (never white) specular band near the top, a deep shadow low
+         * down and a little bounced light along the bottom rim — the
+         * shading that makes a rod read as a cylinder.
+         */}
         <linearGradient
           id="solenoidCoreShade"
           x1="0"
@@ -52,21 +83,48 @@ export default function Solenoid({
           x2="0"
           y2="1"
         >
-          <stop offset="0" stopColor="#bbb9b2" />
-          <stop offset="0.48" stopColor="#96948e" />
-          <stop offset="1" stopColor="#7b7973" />
+          <stop offset="0" stopColor="#6b6358" />
+          <stop offset="0.06" stopColor="#9a9080" />
+          <stop offset="0.19" stopColor="#cdc3b1" />
+          <stop offset="0.29" stopColor="#b0a594" />
+          <stop offset="0.5" stopColor="#8d8375" />
+          <stop offset="0.72" stopColor="#6d6456" />
+          <stop offset="0.88" stopColor="#574f44" />
+          <stop offset="1" stopColor="#756c5e" />
         </linearGradient>
 
+        {/*
+         * The flat end face sits on a different plane from the body, so
+         * it is shaded flatter and a little darker, with no specular band.
+         */}
         <linearGradient
           id="solenoidCoreFaceShade"
+          x1="0"
+          y1="0"
+          x2="0.35"
+          y2="1"
+        >
+          <stop offset="0" stopColor="#a79d8d" />
+          <stop offset="0.4" stopColor="#8a8071" />
+          <stop offset="0.75" stopColor="#6d6457" />
+          <stop offset="1" stopColor="#5b5349" />
+        </linearGradient>
+
+        {/*
+         * A soft lengthwise glint along the top of the rod. Warm and
+         * low-contrast, so it reads as iron rather than polished steel.
+         */}
+        <linearGradient
+          id="solenoidCoreGlint"
           x1="0"
           y1="0"
           x2="1"
           y2="0"
         >
-          <stop offset="0" stopColor="#77756f" />
-          <stop offset="0.45" stopColor="#aaa8a1" />
-          <stop offset="1" stopColor="#d1cfc8" />
+          <stop offset="0" stopColor="#fff6e8" stopOpacity="0" />
+          <stop offset="0.14" stopColor="#fff6e8" stopOpacity="0.34" />
+          <stop offset="0.62" stopColor="#fff6e8" stopOpacity="0.2" />
+          <stop offset="1" stopColor="#fff6e8" stopOpacity="0" />
         </linearGradient>
 
         <linearGradient
@@ -144,11 +202,11 @@ export default function Solenoid({
           ===================================================== */}
 
       <g stroke="url(#solenoidWireShade)">
-        {turnPositions.map((x) => (
+        {turnPositions.map((x, i) => (
           <path
             key={`rear-${x}`}
             className="solenoid-wire-rear"
-            d={`M${x},-34 C${x - 24},-34 ${x - 24},34 ${x},34`}
+            d={rearTurnPath(x, i === count - 1)}
           />
         ))}
 
@@ -181,11 +239,11 @@ export default function Solenoid({
 
       {on && (
         <g aria-hidden="true">
-          {turnPositions.map((x) => (
+          {turnPositions.map((x, i) => (
             <path
               key={`rear-flow-${x}`}
               className={currentFlowClass}
-              d={`M${x},-34 C${x - 24},-34 ${x - 24},34 ${x},34`}
+              d={rearTurnPath(x, i === count - 1)}
             />
           ))}
 
@@ -211,26 +269,44 @@ export default function Solenoid({
 
           The core is AFTER the rear animation, so it sits
           in front of the rear blue overlay.
+
+          Square corners at the front (left): the ellipse cap below
+          is what rounds that end, and its overhang is 10% shorter
+          than before. Rounded corners at the rear (right, no
+          ellipse), at its original length.
           ===================================================== */}
 
-      <rect
-        x="6"
-        y="-18"
-        width={lastTurnX + 8}
-        height="36"
-        rx="18"
+      <path
+        d={`M${coreLeft},${coreTop}
+            L${coreRight - coreRearRadius},${coreTop}
+            Q${coreRight},${coreTop} ${coreRight},${coreTop + coreRearRadius}
+            L${coreRight},${coreBottom - coreRearRadius}
+            Q${coreRight},${coreBottom} ${coreRight - coreRearRadius},${coreBottom}
+            L${coreLeft},${coreBottom}
+            Z`}
         fill="url(#solenoidCoreShade)"
-        stroke="#77756f"
+        stroke="#5f564a"
         strokeWidth="2"
       />
 
+      {/* Lengthwise glint along the top of the rod */}
+      <rect
+        x={coreLeft + 2}
+        y="-12.5"
+        width={Math.max(0, coreRight - coreLeft - 10)}
+        height="3.6"
+        rx="1.8"
+        fill="url(#solenoidCoreGlint)"
+      />
+
+      {/* Flat end face, shaded on its own plane */}
       <ellipse
-        cx="17"
+        cx={coreLeft}
         cy="0"
-        rx="11"
+        rx={coreNoseRadius}
         ry="18"
-        fill="url(#solenoidCoreShade)"
-        stroke="#77756f"
+        fill="url(#solenoidCoreFaceShade)"
+        stroke="#5f564a"
         strokeWidth="2"
       />
 
