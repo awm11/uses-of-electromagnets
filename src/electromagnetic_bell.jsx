@@ -1187,6 +1187,7 @@ function ElectromagneticBellPage({ onBack }) {
   const [stepMode, setStepMode] = useState(false);
   const [guide, setGuide] = useState(null); // { index } while stepping
   const [frozen, setFrozen] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const cardRef = useRef(null);
   const guideRef = useRef(null);
@@ -1272,6 +1273,12 @@ function ElectromagneticBellPage({ onBack }) {
     setSpeed(s);
   };
 
+  const togglePause = () => {
+    if (guide) return;
+    sound.unlock();
+    setPaused((v) => !v);
+  };
+
   const toggleSound = () => {
     sound.unlock();
     setSoundOn((v) => !v);
@@ -1337,6 +1344,12 @@ function ElectromagneticBellPage({ onBack }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [guide]);
 
+  useEffect(() => {
+    if (guide) return;
+    engine.halted = paused;
+    if (paused) setFrozen(false);
+  }, [engine, guide, paused]);
+
   const currentOn = switchOn && view.I > 0.1 * I_MAX;
   const ringing = switchOn && view.strikesPerSec > 0;
   const perSec = Math.max(1, Math.round(view.strikesPerSec));
@@ -1346,6 +1359,8 @@ function ElectromagneticBellPage({ onBack }) {
     status = frozen
       ? "Stepping through • time is paused on each moment"
       : "Stepping through • running to the next moment…";
+  } else if (paused) {
+    status = "Paused • the bell is frozen";
   } else if (!switchOn) {
     status = "Switch open • no current • the bell is silent";
   } else if (fast) {
@@ -1844,6 +1859,16 @@ function ElectromagneticBellPage({ onBack }) {
                   Fast
                 </button>
               </div>
+
+              <button
+                className="soundBtn"
+                onClick={togglePause}
+                aria-pressed={paused}
+                aria-label={paused ? "Resume the bell" : "Pause the bell"}
+                disabled={!!guide}
+              >
+                {paused ? "Resume" : "Pause"}
+              </button>
 
               <button
                 className={"stepToggle " + (stepMode ? "on" : "")}
