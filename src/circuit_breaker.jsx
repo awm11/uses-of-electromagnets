@@ -572,9 +572,9 @@ function Panel({
 
       {showLabels && (
         <g
-          style={{ opacity: ac ? 0.6 : 0, transition: "opacity 0.3s ease" }}
+          style={{ opacity: ac ? 1 : 0, transition: "opacity 0.3s ease" }}
           fontSize="6.5"
-          fill={C.muted}
+          fill="#374151"
           textAnchor="end"
           dominantBaseline="central"
           aria-hidden={!ac}

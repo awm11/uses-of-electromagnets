@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 const C = {
   ink: "#202020",
@@ -96,9 +95,9 @@ for (let c = 0; c < COLS; c++) {
 
 const SHADE = {
   x: 458,
-  y: 150,
+  y: 110,
   w: 670,
-  h: 400,
+  h: 470,
   max: 0.4,
 };
 
@@ -120,6 +119,7 @@ const SHADE_STOPS = Array.from({ length: 85 }, (_, k) => {
     delay: Math.max(0, rad - R_REF) / WAVE_SPEED,
     fade:
       smoothstep((rad - 580) / 100) *
+      smoothstep((1235 - rad) / 160) * // gone before the far end, so no cut-off edge
       (1 - 0.9 * off),
   };
 });
@@ -149,7 +149,8 @@ const fanPoints = (d) => {
   );
 };
 
-const FAN_MASK_STEPS = [16, 8, 0, -8, -16];
+// Many thin nested outlines add up to a smooth edge (about 70 px wide) with no visible steps
+const FAN_MASK_STEPS = Array.from({ length: 25 }, (_, k) => 36 - 3 * k);
 
 AIR.forEach((p) => {
   const dx = p.x - APEX_X;
@@ -298,6 +299,8 @@ const PA = 56;
 const CUT_WIDTH = (100 * Math.PI) / 180; // angular width of the cutaway wedge
 const PHI0 = CUT_WIDTH / 2;
 const PHI_LEN = Math.PI * 2 - CUT_WIDTH;
+// The cutaway faces the starting camera and then stays put (see Speaker3D)
+const START_SPIN = Math.atan2(-1.9, 6.1);
 const CONE_TRAVEL = 0.07; // axial travel of the cone per unit of current (3D units)
 
 const ensureCCW = (pts) => {
@@ -356,16 +359,18 @@ function latheGeometry(profile, phiStart, phiLength, segments) {
   return g;
 }
 
+const ARC_STEPS = 20;
+
 const SURROUND_PROFILE = (() => {
   const c = [1.45, 1.235];
   const outer = [];
   const inner = [];
-  for (let k = 0; k <= 8; k++) {
-    const th = Math.PI - (k * Math.PI) / 8;
+  for (let k = 0; k <= ARC_STEPS; k++) {
+    const th = Math.PI - (k * Math.PI) / ARC_STEPS;
     outer.push([c[0] + 0.075 * Math.cos(th), c[1] + 0.075 * Math.sin(th)]);
   }
-  for (let k = 8; k >= 0; k--) {
-    const th = Math.PI - (k * Math.PI) / 8;
+  for (let k = ARC_STEPS; k >= 0; k--) {
+    const th = Math.PI - (k * Math.PI) / ARC_STEPS;
     inner.push([c[0] + 0.055 * Math.cos(th), c[1] + 0.055 * Math.sin(th)]);
   }
   return outer.concat(inner);
@@ -374,27 +379,72 @@ const SURROUND_PROFILE = (() => {
 const DOME_PROFILE = (() => {
   const outer = [];
   const inner = [];
-  for (let k = 0; k <= 8; k++) {
-    const th = (k * Math.PI) / 16;
+  for (let k = 0; k <= ARC_STEPS; k++) {
+    const th = (k * Math.PI) / (2 * ARC_STEPS);
     outer.push([0.36 * Math.cos(th), 0.74 + 0.16 * Math.sin(th)]);
   }
-  for (let k = 8; k >= 0; k--) {
-    const th = (k * Math.PI) / 16;
+  for (let k = ARC_STEPS; k >= 0; k--) {
+    const th = (k * Math.PI) / (2 * ARC_STEPS);
     inner.push([0.345 * Math.cos(th), 0.74 + 0.145 * Math.sin(th)]);
   }
   return outer.concat(inner);
 })();
 
-// Voice-coil windings: ten turns, drawn as a saw-tooth outer surface
-const WINDINGS_PROFILE = (() => {
-  const pts = [[0.35, 0.3]];
-  for (let k = 0; k < 10; k++) {
-    const y0 = 0.3 + k * 0.028;
-    pts.push([0.4, y0], [0.4, y0 + 0.02], [0.385, y0 + 0.022], [0.385, y0 + 0.028]);
+// Voice-coil turns: ten separate rings of round wire sitting on the former, with a
+// small gap between neighbouring turns
+const TURNS = 10;
+const TURN_PITCH = 0.028;
+const WIRE_R = 0.011;
+const turnProfile = (yc) => {
+  const pts = [];
+  for (let k = 0; k < 14; k++) {
+    const th = (k / 14) * Math.PI * 2;
+    pts.push([0.35 + WIRE_R + WIRE_R * Math.cos(th), yc + WIRE_R * Math.sin(th)]);
   }
-  pts.push([0.35, 0.58]);
   return pts;
-})();
+};
+
+// Soft "studio" environment used for reflections on the metal parts, generated in code
+// (a gradient dome plus a few bright softboxes), so no image files are needed.
+function buildEnvironment(renderer) {
+  const env = new THREE.Scene();
+
+  const dome = new THREE.SphereGeometry(10, 32, 16);
+  const pos = dome.attributes.position;
+  const lo = new THREE.Color(0x101318);
+  const hi = new THREE.Color(0x808995);
+  const c = new THREE.Color();
+  const cols = [];
+  for (let v = 0; v < pos.count; v++) {
+    c.copy(lo).lerp(hi, Math.pow((pos.getY(v) / 10 + 1) / 2, 1.5));
+    cols.push(c.r, c.g, c.b);
+  }
+  dome.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
+  env.add(new THREE.Mesh(dome, new THREE.MeshBasicMaterial({ side: THREE.BackSide, vertexColors: true })));
+
+  const softbox = (x, y, z, w, h, k) => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k, k), side: THREE.DoubleSide })
+    );
+    m.position.set(x, y, z);
+    m.lookAt(0, 0, 0);
+    env.add(m);
+  };
+  softbox(-6, 5, 5, 6, 4, 3); // key
+  softbox(7, 2, 3, 4, 6, 1.2); // fill
+  softbox(0, 9, -2, 8, 3, 1.6); // overhead
+  softbox(-3, -2, -8, 7, 2, 1.4); // rim from behind
+
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const tex = pmrem.fromScene(env, 0.03).texture;
+  pmrem.dispose();
+  env.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) o.material.dispose();
+  });
+  return tex;
+}
 
 function buildSpeaker() {
   const root = new THREE.Group();
@@ -419,25 +469,32 @@ function buildSpeaker() {
       side: THREE.DoubleSide,
     });
     const cut = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(color).offsetHSL(0, 0, 0.12),
+      color: new THREE.Color(color).offsetHSL(0, 0, 0.06),
       metalness: 0,
       roughness: 0.9,
       side: THREE.DoubleSide,
     });
     mats.push(body, cut);
 
-    const meshes = [new THREE.Mesh(latheGeometry(pts, PHI0, PHI_LEN, 56), body)];
+    // o.full: a complete body of revolution that the cutaway never touches
+    const p0 = o.full ? 0 : PHI0;
+    const pLen = o.full ? Math.PI * 2 : PHI_LEN;
+    const meshes = [new THREE.Mesh(latheGeometry(pts, p0, pLen, 120), body)];
     const shape = new THREE.Shape(pts.map((p) => new THREE.Vector2(p[0], p[1])));
 
     // Flat cross-section faces on both edges of the cutaway wedge
-    [PHI0, PHI0 + PHI_LEN].forEach((phi) => {
-      const cap = new THREE.Mesh(new THREE.ShapeGeometry(shape), cut);
-      cap.rotation.y = phi - Math.PI / 2;
-      meshes.push(cap);
-    });
+    if (!o.full) {
+      [PHI0, PHI0 + PHI_LEN].forEach((phi) => {
+        const cap = new THREE.Mesh(new THREE.ShapeGeometry(shape), cut);
+        cap.rotation.y = phi - Math.PI / 2;
+        meshes.push(cap);
+      });
+    }
 
     meshes.forEach((m) => {
       m.frustumCulled = false;
+      m.castShadow = true;
+      m.receiveShadow = true;
       parent.add(m);
       geos.push(m.geometry);
       if (o.flex) {
@@ -448,24 +505,176 @@ function buildSpeaker() {
   };
 
   // --- Magnetic motor (static) ---
-  // Back plate with centre pole (N, joined to the N face of the ring magnet)
-  part(spin, [[0, 0], [0.9, 0], [0.9, 0.12], [0.28, 0.12], [0.28, 0.54], [0, 0.54]], "#7f8891", { metal: 0.5 });
-  // Ring magnet: N half against the back plate, S half against the top plate
-  part(spin, rectProfile(0.55, 0.9, 0.12, 0.27), "#c94b3d");
-  part(spin, rectProfile(0.55, 0.9, 0.27, 0.42), "#2b6fd6");
+  // Back plate (cut away with the rest) and the centre pole (N), which is never cut
+  part(spin, rectProfile(0, 0.9, 0, 0.12), "#5d6670", { metal: 0.85, rough: 0.35 });
+  part(spin, rectProfile(0, 0.28, 0.11, 0.54), "#5d6670", { metal: 0.85, rough: 0.35, full: true });
+  // Ring magnet (plain colour; the poles are identified by the N and S labels)
+  part(spin, rectProfile(0.55, 0.9, 0.12, 0.42), "#4b5560", { metal: 0.8, rough: 0.4 });
   // Top plate (S): its hole leaves the annular gap around the centre pole
-  part(spin, rectProfile(0.42, 0.9, 0.42, 0.54), "#a4acb5", { metal: 0.5 });
+  part(spin, rectProfile(0.42, 0.9, 0.42, 0.54), "#8a939d", { metal: 0.9, rough: 0.28 });
 
   // --- Basket and surround (static) ---
-  part(spin, [[0.88, 0.5], [0.92, 0.5], [1.52, 1.2], [1.48, 1.2]], "#8f969d");
-  part(spin, rectProfile(1.44, 1.66, 1.2, 1.26), "#8f969d");
-  part(spin, SURROUND_PROFILE, "#4b5563", { rough: 0.8, flex: true });
+  part(spin, [[0.88, 0.5], [0.92, 0.5], [1.52, 1.2], [1.48, 1.2]], "#6b747e", { metal: 0.6, rough: 0.45 });
+  part(spin, rectProfile(1.44, 1.66, 1.2, 1.26), "#6b747e", { metal: 0.6, rough: 0.45 });
+  part(spin, SURROUND_PROFILE, "#3a4350", { metal: 0, rough: 0.75, flex: true });
 
   // --- Moving assembly ---
-  part(moving, [[0.36, 0.74], [0.4, 0.74], [1.4, 1.22], [1.36, 1.22]], "#ece7dd", { metal: 0, rough: 0.85 });
-  part(moving, DOME_PROFILE, "#cfc8bb", { metal: 0, rough: 0.8 });
-  part(moving, rectProfile(0.33, 0.35, 0.3, 0.74), "#d8d2c6", { metal: 0, rough: 0.7 });
-  part(moving, WINDINGS_PROFILE, "#b86f32", { metal: 0.6, rough: 0.4 });
+  part(moving, [[0.36, 0.74], [0.4, 0.74], [1.4, 1.22], [1.36, 1.22]], "#d6cfc1", { metal: 0, rough: 0.9 });
+  part(moving, DOME_PROFILE, "#bdb5a5", { metal: 0, rough: 0.8 });
+  part(moving, rectProfile(0.33, 0.35, 0.3, 0.74), "#c9c2b4", { metal: 0, rough: 0.6 });
+  for (let k = 0; k < TURNS; k++) {
+    part(moving, turnProfile(0.311 + k * TURN_PITCH), "#b86f32", { metal: 1, rough: 0.28 });
+  }
+
+  // --- Pole labels, sitting on the exposed front faces inside the cutaway wedge ---
+  // N on the centre pole, S on the outer (top plate) ring. The wedge is centred on
+  // local azimuth 0, which is the +Z direction of the spin group.
+  const textures = [];
+  // Labels are flat discs lying on the surface they label (a hair above it so they don't
+  // cut into it). `up` is the in-plane direction of the top of the letter and `n` the
+  // surface normal; both are vectors in the spin group's local space.
+  const label = (letter, color, at, size, up, n) => {
+    const c = document.createElement("canvas");
+    c.width = 128;
+    c.height = 128;
+    const g = c.getContext("2d");
+    g.fillStyle = color;
+    g.beginPath();
+    g.arc(64, 64, 58, 0, Math.PI * 2);
+    g.fill();
+    g.lineWidth = 6;
+    g.strokeStyle = "#ffffff";
+    g.stroke();
+    g.fillStyle = "#ffffff";
+    g.font = "bold 76px Inter, Arial, sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(letter, 64, 68);
+
+    const tex = new THREE.CanvasTexture(c);
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    const geo = new THREE.PlaneGeometry(size, size);
+    const mesh = new THREE.Mesh(geo, mat);
+    const nV = new THREE.Vector3(n[0], n[1], n[2]);
+    const yV = new THREE.Vector3(up[0], up[1], up[2]);
+    const xV = new THREE.Vector3().crossVectors(yV, nV); // so that x × y = normal
+    mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xV, yV, nV));
+    mesh.position.set(at[0] + n[0] * 0.004, at[1] + n[1] * 0.004, at[2] + n[2] * 0.004);
+    mesh.renderOrder = 3;
+    spin.add(mesh);
+    geos.push(geo);
+    textures.push(tex);
+    mats.push(mat);
+  };
+
+  // Local-space direction that appears as world "up" once the spin group is turned
+  const UP = [-Math.cos(START_SPIN), 0, -Math.sin(START_SPIN)];
+
+  // N lies flat on the centre pole's front (end) face
+  label("N", "#c94b3d", [0, 0.54, 0], 0.34, UP, [0, 1, 0]);
+
+  // The whole outer ring (ring magnet + top plate) is the south pole. Its two exposed
+  // cross-section faces (either side of the wedge) are tinted and labelled as one region.
+  const RING = [[0.55, 0.12], [0.9, 0.12], [0.9, 0.54], [0.42, 0.54], [0.42, 0.42], [0.55, 0.42]];
+  const ringGeo = new THREE.ShapeGeometry(new THREE.Shape(RING.map((p) => new THREE.Vector2(p[0], p[1]))));
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: "#2b6fd6",
+    transparent: true,
+    opacity: 0.4,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  geos.push(ringGeo);
+  mats.push(ringMat);
+  [PHI0 - 0.03, -PHI0 + 0.03].forEach((a) => {
+    const face = new THREE.Mesh(ringGeo, ringMat);
+    face.rotation.y = a - Math.PI / 2; // lay the region on the cut plane, just inside the wedge
+    spin.add(face);
+    // Flat on the cut face, letter upright: the face's in-plane directions are the
+    // axis and the radial direction, and the radial one is what points up or down
+    const radial = [Math.sin(a), 0, Math.cos(a)];
+    const worldUpSign = -Math.sin(a + START_SPIN) >= 0 ? 1 : -1; // radial -> world Y is -sin(angle)
+    const side = a > 0 ? -1 : 1; // normal points into the cutaway wedge
+    const n = [side * Math.cos(a), 0, -side * Math.sin(a)];
+    label(
+      "S",
+      "#2b6fd6",
+      [0.72 * radial[0], 0.33, 0.72 * radial[2]],
+      0.3,
+      [worldUpSign * radial[0], 0, worldUpSign * radial[2]],
+      n
+    );
+  });
+
+  // --- Magnetic field lines (shown with the "Magnetic field lines" toggle) ---
+  // Radial lines along the whole length of the N centre pole, each running out to the
+  // S outer ring (the top plate's bore near the front, the ring magnet's bore behind it),
+  // with a small arrowhead half way along. They sit inside the cutaway wedge.
+  const field = new THREE.Group();
+  const fieldMat = new THREE.MeshBasicMaterial({
+    color: "#2d9b55",
+    transparent: true,
+    opacity: 0,
+    toneMapped: false,
+    depthWrite: false, // depth-tested as normal, so solid parts hide the lines behind them
+  });
+  const lineGeo = new THREE.CylinderGeometry(0.004, 0.004, 1, 6); // unit length, scaled per line
+  const headGeo = new THREE.ConeGeometry(0.014, 0.035, 10);
+  geos.push(lineGeo, headGeo);
+  mats.push(fieldMat);
+
+  const POLE_R = 0.285; // just outside the centre pole (r = 0.28)
+  const heights = [];
+  for (let y = 0.14; y <= 0.53; y += 0.035) heights.push(y);
+
+  // All the way round the axis, drawn as two instanced meshes (lines and arrowheads).
+  // Drawn with normal depth testing: they are only visible where the gap is exposed.
+  const AZ_COUNT = 24;
+  const count = AZ_COUNT * heights.length;
+  const lines = new THREE.InstancedMesh(lineGeo, fieldMat, count);
+  const heads = new THREE.InstancedMesh(headGeo, fieldMat, count);
+  const dummy = new THREE.Object3D();
+  dummy.rotation.order = "YXZ";
+
+  let n = 0;
+  for (let a = 0; a < AZ_COUNT; a++) {
+    const az = (a / AZ_COUNT) * Math.PI * 2;
+    heights.forEach((y) => {
+      const outerR = (y > 0.42 ? 0.42 : 0.55) - 0.005; // bore of the S ring at this height
+      const len = outerR - POLE_R;
+      const mid = POLE_R + len / 2; // arrowhead half way along
+      // cylinder/cone axis (Y) -> radial direction at azimuth az
+      dummy.rotation.set(Math.PI / 2, az, 0);
+      dummy.position.set(mid * Math.sin(az), y, mid * Math.cos(az));
+      dummy.scale.set(1, len, 1);
+      dummy.updateMatrix();
+      lines.setMatrixAt(n, dummy.matrix);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      heads.setMatrixAt(n, dummy.matrix); // cone tip points outward (N to S)
+      n++;
+    });
+  }
+  [lines, heads].forEach((m) => {
+    m.frustumCulled = false;
+    field.add(m);
+  });
+  field.visible = false;
+  spin.add(field);
+
+  const setField = (on) => {
+    fieldMat.opacity += ((on ? 0.8 : 0) - fieldMat.opacity) * 0.15;
+    field.visible = fieldMat.opacity > 0.02;
+  };
 
   // Surround flexes: its inner edge follows the cone, its outer edge stays on the basket
   const flexTo = (d) => {
@@ -482,15 +691,21 @@ function buildSpeaker() {
   };
 
   const dispose = () => {
+    field.children.forEach((c) => c.dispose && c.dispose());
     geos.forEach((g) => g.dispose());
     mats.forEach((m) => m.dispose());
+    textures.forEach((t) => t.dispose());
   };
 
-  return { root, spin, moving, flexTo, dispose };
+  return { root, spin, moving, flexTo, setField, dispose };
 }
 
-function Speaker3D({ signalRef }) {
+function Speaker3D({ signalRef, showField, active = true }) {
   const mountRef = useRef(null);
+  const activeRef = useRef(true);
+  activeRef.current = active;
+  const showRef = useRef(false);
+  showRef.current = showField;
 
   useEffect(() => {
     const el = mountRef.current;
@@ -502,28 +717,90 @@ function Speaker3D({ signalRef }) {
       return undefined; // no WebGL: leave the window empty
     }
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const basePixelRatio = Math.min(3, Math.max(2, (window.devicePixelRatio || 1) * 1.5));
     renderer.setClearColor(0x000000, 0);
+    if ("outputColorSpace" in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
+    else renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.85;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.style.cssText = "display:block;width:100%;height:100%;touch-action:none";
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8894a3, 0.6));
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
-    key.position.set(3, 4, 5);
-    scene.add(key);
-    const fill = new THREE.DirectionalLight(0xffffff, 0.5);
-    fill.position.set(-4, -2, -3);
-    scene.add(fill);
+    const envTex = buildEnvironment(renderer);
+    scene.environment = envTex;
 
     const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
     camera.position.set(2.6, 1.9, 6.1);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.enableZoom = false; // keep the page scrollable
-    controls.enablePan = false;
+    // Lights ride on the camera, so the speaker stays well lit from every angle
+    scene.add(camera);
+    camera.add(new THREE.HemisphereLight(0xffffff, 0x5b6573, 0.2));
+    const key = new THREE.DirectionalLight(0xffffff, 1.5);
+    key.position.set(-3, 4, 3);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    Object.assign(key.shadow.camera, { left: -3.2, right: 3.2, top: 3.2, bottom: -3.2, near: 0.5, far: 30 });
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.02;
+    key.shadow.radius = 3;
+    camera.add(key);
+    const fill = new THREE.DirectionalLight(0xbfd2ff, 0.3);
+    fill.position.set(4, -1, 2);
+    camera.add(fill);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.7);
+    rim.position.set(2, 3, -4);
+    camera.add(rim);
+
+    // Minimal drag-to-orbit (no extra imports): azimuth and elevation around the origin
+    const view = {
+      az: Math.atan2(2.6, 6.1),
+      el: Math.atan2(1.9, Math.hypot(2.6, 6.1)),
+      dist: Math.hypot(2.6, 1.9, 6.1),
+      vAz: 0,
+      vEl: 0,
+      lastAz: 0,
+      lastEl: 0,
+    };
+    const place = () => {
+      const c = Math.cos(view.el);
+      camera.position.set(
+        view.dist * c * Math.sin(view.az),
+        view.dist * Math.sin(view.el),
+        view.dist * c * Math.cos(view.az)
+      );
+      camera.lookAt(0, 0, 0);
+    };
+    place();
+
+    const canvas = renderer.domElement;
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+    const onDown = (e) => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+    };
+    const onMove = (e) => {
+      if (!dragging) return;
+      view.vAz -= (e.clientX - lastX) * 0.008;
+      view.vEl += (e.clientY - lastY) * 0.008;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    };
+    const onUp = () => {
+      dragging = false;
+      view.vAz = view.lastAz; // glide on from the last drag speed
+      view.vEl = view.lastEl;
+    };
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointermove", onMove);
+    canvas.addEventListener("pointerup", onUp);
+    canvas.addEventListener("pointercancel", onUp);
 
     const speaker = buildSpeaker();
     scene.add(speaker.root);
@@ -532,6 +809,8 @@ function Speaker3D({ signalRef }) {
       const w = el.clientWidth;
       const h = el.clientHeight;
       if (!w || !h) return;
+      // supersample, but keep the total pixel count reasonable (e.g. when maximised)
+      renderer.setPixelRatio(Math.min(basePixelRatio, Math.sqrt(9e6 / (w * h))));
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
@@ -541,26 +820,38 @@ function Speaker3D({ signalRef }) {
     ro.observe(el);
     resize();
 
-    // The wedge is centred on the direction from the axis towards the camera
-    const facing = () => Math.atan2(-camera.position.y, camera.position.z);
-    let spinAngle = facing();
-    speaker.spin.rotation.y = spinAngle;
+    // The cutaway wedge faces the starting camera position and then stays fixed in
+    // space while you orbit (it does not follow the camera)
+    speaker.spin.rotation.y = START_SPIN;
 
     let raf;
     const loop = () => {
-      controls.update();
-
-      if (Math.hypot(camera.position.y, camera.position.z) > 0.25) {
-        let diff = facing() - spinAngle;
-        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-        spinAngle += diff * 0.12;
-        speaker.spin.rotation.y = spinAngle;
+      if (!activeRef.current) {
+        raf = requestAnimationFrame(loop); // hidden: skip all the work
+        return;
+      }
+      if (view.vAz || view.vEl) {
+        view.az += view.vAz;
+        view.el = Math.max(-1.3, Math.min(1.3, view.el + view.vEl));
+        if (dragging) {
+          // follow the pointer exactly, remembering the speed for the glide
+          view.lastAz = view.vAz;
+          view.lastEl = view.vEl;
+          view.vAz = 0;
+          view.vEl = 0;
+        } else {
+          // after release, glide to rest
+          view.vAz = Math.abs(view.vAz) < 1e-4 ? 0 : view.vAz * 0.9;
+          view.vEl = Math.abs(view.vEl) < 1e-4 ? 0 : view.vEl * 0.9;
+        }
+        place();
       }
 
       // Cone, coil and surround follow the live current
       const d = (signalRef.current || 0) * CONE_TRAVEL;
       speaker.moving.position.y = d;
       speaker.flexTo(d);
+      speaker.setField(showRef.current);
 
       renderer.render(scene, camera);
       raf = requestAnimationFrame(loop);
@@ -570,8 +861,12 @@ function Speaker3D({ signalRef }) {
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      controls.dispose();
+      canvas.removeEventListener("pointerdown", onDown);
+      canvas.removeEventListener("pointermove", onMove);
+      canvas.removeEventListener("pointerup", onUp);
+      canvas.removeEventListener("pointercancel", onUp);
       speaker.dispose();
+      envTex.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
     };
@@ -584,8 +879,6 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
   const [sig, setSig] = useState("2");
   const [mode, setMode] = useState("changing");
   const [muted, setMuted] = useState(true);
-  const [audioStarted, setAudioStarted] =
-    useState(false);
 
   const mutedRef = useRef(false);
   mutedRef.current = muted;
@@ -612,6 +905,17 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
   const dirRef = useRef(null);
   const readoutRef = useRef(null);
   const signalRef = useRef(0); // live current, shared with the 3D view
+  const [maximised, setMaximised] = useState(false);
+  const [minimised, setMinimised] = useState(false);
+
+  useEffect(() => {
+    if (!maximised) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setMaximised(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [maximised]);
 
   useEffect(() => {
       if (disableSound) return;
@@ -667,7 +971,6 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
         appliedSig: null,
       });
 
-      setAudioStarted(true);
     };
 
     window.addEventListener(
@@ -966,7 +1269,7 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
       }
 
       readoutRef.current.textContent =
-        "i = " +
+        "= " +
         (i >= 0 ? "+" : "–") +
         Math.abs(i).toFixed(2) +
         " A";
@@ -1021,6 +1324,28 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
     return () =>
       cancelAnimationFrame(raf);
   }, []);
+
+  const muteIcon = (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3,9 H7 L12,4.5 V19.5 L7,15 H3 Z" fill="currentColor" />
+      {muted ? (
+        <path
+          d="M16,9 L22,15 M22,9 L16,15"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      ) : (
+        <path
+          d="M15.5,8.5 Q18,12 15.5,15.5 M18.5,6 Q23,12 18.5,18"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  );
 
   const sigLabel =
     sig === "2+3"
@@ -1133,9 +1458,9 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
         }
 
         .controls {
-          display: flex;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
           align-items: center;
-          justify-content: space-between;
           gap: 18px;
           padding: 14px 18px;
           border-top: 1px solid #e2e6ea;
@@ -1147,11 +1472,78 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
         }
 
         .viewer3d {
+          transition: transform 0.35s ease, opacity 0.25s ease;
           position: absolute;
           border: 1px solid #d9dee4;
           border-radius: 12px;
           background: #f7f8fa;
           overflow: hidden;
+        }
+
+        .viewer3d.max {
+          position: fixed;
+          inset: 14px;
+          width: auto;
+          height: auto;
+          z-index: 1000;
+          border-radius: 14px;
+          box-shadow: 0 0 0 100vmax rgba(15, 23, 42, 0.5);
+        }
+
+        .viewer3d.min {
+          transform: translateY(-130%);
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .viewerBtn.viewerBtnMin {
+          right: 44px;
+        }
+
+        .viewerReopen {
+          position: absolute;
+          top: 1.2%;
+          right: 0.9%;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border: 1px solid #c6ccd3;
+          border-radius: 99px;
+          background: rgba(255, 255, 255, 0.95);
+          color: ${C.ink};
+          font: inherit;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .viewerReopen:hover {
+          border-color: ${C.blue};
+          color: ${C.blue};
+        }
+
+        .viewerBtn {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          padding: 0;
+          border: 1px solid #c6ccd3;
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.9);
+          color: ${C.ink};
+          cursor: pointer;
+        }
+
+        .viewerBtn:hover {
+          background: #fff;
+          border-color: ${C.blue};
+          color: ${C.blue};
         }
 
         .speaker3d {
@@ -1164,6 +1556,23 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
           cursor: grabbing;
         }
 
+        .viewerToolbar {
+          position: absolute;
+          left: 50%;
+          bottom: 14px;
+          transform: translateX(-50%);
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 8px 22px;
+          padding: 8px 18px;
+          border: 1px solid #d9dee4;
+          border-radius: 99px;
+          background: rgba(255, 255, 255, 0.92);
+          box-shadow: 0 4px 14px rgba(31, 41, 55, 0.12);
+        }
+
         .viewerLabel {
           position: absolute;
           left: 10px;
@@ -1173,9 +1582,19 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
           pointer-events: none;
         }
 
+        .readoutI {
+          font-family: "Times New Roman", Times, Georgia, serif;
+          font-style: italic;
+          font-weight: 700;
+        }
+
         .readout {
           font-weight: 800;
           font-variant-numeric: tabular-nums;
+          display: inline-block;
+          width: 9.5ch;
+          flex: 0 0 auto;
+          white-space: nowrap;
         }
 
         .signalBar {
@@ -1217,11 +1636,6 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
           align-items: center;
           gap: 12px;
           margin-left: auto;
-        }
-
-        .audioHint {
-          color: ${C.muted};
-          font-size: 13px;
         }
 
         .muteBtn {
@@ -1288,13 +1702,22 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
           transform: translateX(24px);
         }
 
+        .controls .status {
+          justify-self: end;
+        }
+
         .status {
           display: flex;
           align-items: center;
           gap: 8px;
+          width: 250px;
+          max-width: 100%;
+          flex: 0 0 auto;
           color: ${C.muted};
           font-size: 14px;
+          justify-content: flex-end;
           text-align: right;
+          white-space: nowrap;
         }
 
         .dot {
@@ -1352,6 +1775,7 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
           }
 
           .controls {
+            display: flex;
             align-items: flex-start;
             flex-direction: column;
           }
@@ -1641,13 +2065,16 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
               />
 
               <text
-                x="80"
-                y="350"
+                x="54"
+                y="341"
                 fontSize="18"
                 fill={C.ink}
-                textAnchor="end"
+                textAnchor="middle"
               >
-                AC source
+                <tspan x="54">AC</tspan>
+                <tspan x="54" dy="21">
+                  source
+                </tspan>
               </text>
 
               <defs>
@@ -1965,7 +2392,7 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
                         key={d}
                         points={fanPoints(d)}
                         fill="#fff"
-                        fillOpacity="0.4"
+                        fillOpacity="0.12"
                       />
                     )
                   )}
@@ -2046,19 +2473,119 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
             </svg>
               {!disable3D && (
                 <div
-                  className="viewer3d"
-                  style={{
-                    left: "60.87%",
-                    top: "1.67%",
-                    width: "38.26%",
-                    height: "33%",
-                  }}
+                  className={"viewer3d" + (maximised ? " max" : "") + (minimised ? " min" : "")}
+                  style={
+                    maximised
+                      ? undefined
+                      : {
+                          left: "60.87%",
+                          top: "1.67%",
+                          width: "38.26%",
+                          height: "33%",
+                        }
+                  }
                 >
-                  <Speaker3D signalRef={signalRef} />
+                  <Speaker3D signalRef={signalRef} showField={showField} active={!minimised} />
                   <span className="viewerLabel">
                     3D cutaway • drag to rotate
                   </span>
+
+                  {maximised && (
+                    <div className="viewerToolbar">
+                      <button
+                        className="switchBtn"
+                        onClick={() => setSlow((v) => !v)}
+                        aria-pressed={slow}
+                      >
+                        <span className={"toggle " + (slow ? "on" : "")}>
+                          <span className="knob" />
+                        </span>
+                        Slow motion
+                      </button>
+
+                      <button
+                        className="switchBtn"
+                        onClick={() => setShowField((v) => !v)}
+                        aria-pressed={showField}
+                      >
+                        <span className={"toggle green " + (showField ? "on" : "")}>
+                          <span className="knob" />
+                        </span>
+                        Magnetic field lines
+                      </button>
+
+                      <button
+                        className={"seg muteBtn " + (muted ? "muted" : "")}
+                        onClick={() => setMuted((v) => !v)}
+                        aria-pressed={muted}
+                      >
+                        {muteIcon}
+                        {muted ? "Unmute" : "Mute"}
+                      </button>
+                    </div>
+                  )}
+
+                  {!maximised && (
+                    <button
+                      className="viewerBtn viewerBtnMin"
+                      onClick={() => setMinimised(true)}
+                      aria-label="Minimise 3D window"
+                      title="Minimise"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M5,15 L12,8 L19,15"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  )}
+
+                  <button
+                    className="viewerBtn"
+                    onClick={() => setMaximised((v) => !v)}
+                    aria-label={maximised ? "Restore 3D window" : "Maximise 3D window"}
+                    title={maximised ? "Restore (Esc)" : "Maximise"}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d={
+                          maximised
+                            ? "M9,4 V9 H4 M20,9 H15 V4 M15,20 V15 H20 M4,15 H9 V20"
+                            : "M4,9 V4 H9 M15,4 H20 V9 M20,15 V20 H15 M9,20 H4 V15"
+                        }
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
                 </div>
+              )}
+              {!disable3D && minimised && (
+                <button
+                  className="viewerReopen"
+                  onClick={() => setMinimised(false)}
+                  aria-label="Show 3D window"
+                >
+                  3D view
+                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M5,9 L12,16 L19,9"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
               )}
             </div>
           </div>
@@ -2089,13 +2616,6 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
             ))}
 
             <span className="soundGroup">
-              {!audioStarted && (
-                <span className="audioHint">
-                  Click anywhere to enable
-                  sound
-                </span>
-              )}
-
               <button
                 className={
                   "seg muteBtn " +
@@ -2143,11 +2663,9 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
           </div>
 
           <div className="controls">
-            <div
-              className="readout"
-              ref={readoutRef}
-            >
-              i = +0.00 A
+            <div className="readout">
+              <span className="readoutI">I</span>{" "}
+              <span ref={readoutRef}>= +0.00 A</span>
             </div>
 
             <div className="toggles">
