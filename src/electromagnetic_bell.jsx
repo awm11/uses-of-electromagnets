@@ -814,19 +814,6 @@ function Panel({
       <rect x={STAND_X - 4} y={GONG.y} width="8" height={BASE_Y - GONG.y} fill="url(#bellPostGrad)" stroke="#4b5563" strokeWidth="0.8" />
       <rect x={STAND_X - 9} y={BASE_Y - 6} width="18" height="6" rx="1.5" fill="#6b7280" stroke="#374151" strokeWidth="0.8" />
 
-      {/* Magnetic field around the electromagnet */}
-      <g
-        fill="none"
-        stroke="#5b6fd6"
-        strokeWidth="1.1"
-        strokeDasharray="4 4"
-        style={{ opacity: 0.75 * fieldVis }}
-        pointerEvents="none"
-      >
-        <ellipse cx={COIL_CX} cy={COIL_Y} rx="84" ry="33" />
-        <ellipse cx={COIL_CX} cy={COIL_Y} rx="100" ry="45" />
-      </g>
-
       {/* Wires, in the direction the current flows */}
       <Wire d={`M${BAT.x},${BAT.plus} V${SW.y} H${SW.x1}`} flowing={switchOn} />
       <Wire d={`M${SW.x2},${SW.y} H${REAR_LEAD_X} V${LEAD_Y}`} flowing={switchOn} />
