@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Solenoid from "./solenoid.jsx";
 import fieldImage from "./magneticFieldLines.png";
 import fieldImageMirrored from "./fieldLinesMirrored.png";
@@ -19,94 +19,14 @@ import fieldImageMirrored from "./fieldLinesMirrored.png";
    then quietly swapped in the fallback coil and dropped the field lines.
    ------------------------------------------------------------------ */
 
-// Simple stand-in with the same props and lead positions as solenoid.jsx
-function FallbackSolenoid({
-  on = true,
-  reverse = false,
-  corner = { x: 75, y: 230 },
-  orientation = 270,
-  mirror = false,
-  scale = 0.5,
-  turns = 20,
-}) {
-  const count = Math.max(1, Math.min(31, Math.round(turns)));
-  const xs = Array.from({ length: count }, (_, i) => 60 + i * 20);
-  const last = xs[xs.length - 1];
-  const rearLead = last - 5;
-  const frontLead = 66.5;
-  const wire = {
-    fill: "none",
-    stroke: "#c86d27",
-    strokeWidth: 8,
-    strokeLinecap: "round",
-  };
-  const flow = {
-    className: "cb-flow",
-    style: reverse ? { animationDirection: "reverse" } : undefined,
-    fill: "none",
-    stroke: "#b7410e",
-    strokeWidth: 3.5,
-    strokeLinecap: "round",
-  };
-  const turnPath = (x) => `M${x},34 Q${x + 15},-5 ${x - 18},-34`;
-
-  return (
-    <g
-      transform={`translate(${corner.x} ${corner.y}) rotate(${orientation}) scale(${
-        mirror ? -scale : scale
-      } ${scale})`}
-      role="img"
-      aria-label="Solenoid coil"
-    >
-      <path {...wire} d={`M${rearLead},-75.5 V-5.5`} />
-      <rect
-        x="6"
-        y="-18"
-        width={last + 8}
-        height="36"
-        rx="18"
-        fill="#aaa8a1"
-        stroke="#77756f"
-        strokeWidth="2"
-      />
-      {xs.map((x) => (
-        <path key={x} {...wire} d={turnPath(x)} />
-      ))}
-      <path {...wire} d={`M${frontLead},1 V-75.5`} />
-
-      {on && (
-        <g aria-hidden="true">
-          {xs.map((x) => (
-            <path key={`f${x}`} {...flow} d={turnPath(x)} />
-          ))}
-          <path {...flow} d={`M${rearLead},-75.5 V-5.5`} />
-          <path {...flow} d={`M${frontLead},1 V-75.5`} />
-        </g>
-      )}
-    </g>
-  );
-}
-
-// FallbackSolenoid above is now only a safety net: it is used if the
-// solenoid module somehow resolves to nothing. It can be deleted.
-const ASSETS = {
-  Solenoid: Solenoid || FallbackSolenoid,
-  fieldImage: fieldImage || null,
-  fieldImageMirrored: fieldImageMirrored || null,
-};
-
-const AssetsContext = createContext(ASSETS);
-
-function useOptionalAssets() {
-  return ASSETS;
-}
-
 const C = {
   ink: "#202020",
   casing: "#1a1a1a",
   amber: "#d97706",
   green: "#2d9b55",
   muted: "#59636f",
+  // Dark grey for small or secondary text, in place of amber / faded grey
+  grey: "#374151",
   copper: "#b86f32",
   metal: "#8f969d",
   metalDark: "#555c63",
@@ -314,6 +234,12 @@ function SpringFront({ setRef, rest }) {
   );
 }
 
+// Magnetic field overlay box. The CSS mirror (used only if there is no
+// pre-flipped image) reflects about the image's own centre, so it is
+// derived from these numbers rather than hard-coded.
+const FIELD = { x: -14.5, y: 30.93, w: 118, h: 73.15 };
+const FIELD_MIRROR = `translate(${2 * (FIELD.x + FIELD.w / 2)}px,0) scaleX(-1)`;
+
 function Panel({
   plungerUp,
   boltX,
@@ -333,7 +259,6 @@ function Panel({
 
   const plungerShift = (plungerUp ? -20 : 0) + drag;
   const switchOn = switchClosed;
-  const { Solenoid, fieldImage, fieldImageMirrored } = useContext(AssetsContext);
 
   // Faint field while current flows normally, stronger during a surge,
   // gone once the circuit has broken.
@@ -542,7 +467,7 @@ function Panel({
         <g
           style={{ opacity: ac ? 1 : 0, transition: "opacity 0.3s ease" }}
           fontSize="6.5"
-          fill="#374151"
+          fill={C.grey}
           textAnchor="end"
           dominantBaseline="central"
           aria-hidden={!ac}
@@ -567,19 +492,16 @@ function Panel({
       {fieldImage && (
         <image
           href={fieldMirrored && fieldImageMirrored ? fieldImageMirrored : fieldImage}
-          x="-10.5"
-          y="30.93"
-          width="118"
-          height="73.15"
+          x={FIELD.x}
+          y={FIELD.y}
+          width={FIELD.w}
+          height={FIELD.h}
           preserveAspectRatio="none"
           style={{
             opacity: fieldPulsingOut ? 0 : fieldOpacity,
-            // Only mirror in CSS (about the image's own centre, x=48.5)
-            // when there's no pre-flipped image to swap in
+            // Only mirror in CSS when there's no pre-flipped image to swap in
             transform:
-              fieldMirrored && !fieldImageMirrored
-                ? "translate(97px,0) scaleX(-1)"
-                : "none",
+              fieldMirrored && !fieldImageMirrored ? FIELD_MIRROR : "none",
             transition: fieldPulsingOut
               ? "opacity 0.09s ease-out"
               : surge
@@ -732,16 +654,19 @@ function Panel({
             <text x="24" y="103">magnet</text>
 
             <text x="99" y="118" textAnchor="end">Iron bolt</text>
-            <line x1="88" y1="108" x2="90" y2="75" stroke={C.ink} strokeWidth="0.8" />
+            <line x1="88" y1="108" x2="90" y2="68" stroke={C.ink} strokeWidth="0.8" />
 
             <text x="165" y="164" textAnchor="middle">
               Switch is {switchOn ? "ON" : "OFF"}
             </text>
 
-            <text x="219" y="156">To house</text>
-            <text x="219" y="167">circuit</text>
-            <line x1="255" y1="163.5" x2="264" y2="163.5" stroke={C.ink} strokeWidth="1.8" />
-            <polygon points="270,163.5 262,159.5 262,167.5" fill={C.ink} />
+            {/* "To house circuit" label + arrow: nudge as one block */}
+            <g transform="translate(0 5)">
+              <text x="219" y="156">To house</text>
+              <text x="219" y="167">circuit</text>
+              <line x1="255" y1="163.5" x2="264" y2="163.5" stroke={C.ink} strokeWidth="1.8" />
+              <polygon points="270,163.5 262,159.5 262,167.5" fill={C.ink} />
+            </g>
           </g>
 
           {surge && (
@@ -1199,7 +1124,6 @@ function CurrentChart({
    ------------------------------------------------------------------ */
 
 export function CircuitBreakerPreview() {
-  const assets = useOptionalAssets();
   const [s, setS] = useState(NORMAL);
 
   useEffect(() => {
@@ -1231,7 +1155,6 @@ export function CircuitBreakerPreview() {
   }, []);
 
   return (
-    <AssetsContext.Provider value={assets}>
     <div
       style={{
         width: "100%",
@@ -1251,7 +1174,6 @@ export function CircuitBreakerPreview() {
         <Panel {...s} showLabels={false} />
       </svg>
     </div>
-    </AssetsContext.Provider>
   );
 }
 
@@ -1260,7 +1182,6 @@ export function CircuitBreakerPreview() {
    ------------------------------------------------------------------ */
 
 export default function CircuitBreaker({ onBack }) {
-  const assets = useOptionalAssets();
   const [s, setS] = useState(NORMAL);
   const [animating, setAnimating] = useState(false);
   const [ac, setAc] = useState(false);
@@ -1437,7 +1358,6 @@ export default function CircuitBreaker({ onBack }) {
   };
 
   return (
-    <AssetsContext.Provider value={assets}>
     <main className="page">
       <style>{`
         * { box-sizing: border-box; }
@@ -1483,13 +1403,19 @@ export default function CircuitBreaker({ onBack }) {
         }
         .heading h1 {
           margin: 0;
+          /* set explicitly: an inherited colour loses to any h1 rule
+             in the surrounding app's stylesheet */
+          color: ${C.ink};
           font-size: clamp(28px, 4vw, 40px);
           line-height: 1.1;
           letter-spacing: -.04em;
         }
         .intro {
           max-width: 780px;
-          margin: 8px 0 0;
+          /* auto side margins centre the block, text-align centres the
+             lines inside it */
+          margin: 8px auto 0;
+          text-align: center;
           color: ${C.muted};
           line-height: 1.5;
           font-size: 14px;
@@ -1593,6 +1519,7 @@ export default function CircuitBreaker({ onBack }) {
         }
         .stepPop h3 {
           margin: 0 0 6px;
+          color: ${C.ink};
           font-size: 15px;
           line-height: 1.25;
         }
@@ -1748,7 +1675,7 @@ export default function CircuitBreaker({ onBack }) {
           border-radius: 14px;
           padding: 16px 18px;
         }
-        .lessonBox h2 { margin: 0 0 7px; font-size: 15px; }
+        .lessonBox h2 { margin: 0 0 7px; color: ${C.ink}; font-size: 15px; }
         .lessonBox p {
           margin: 0;
           color: ${C.muted};
@@ -1808,7 +1735,7 @@ export default function CircuitBreaker({ onBack }) {
 
           <div className={"stage" + (frozen ? " frozen" : "")}>
             <svg
-              viewBox="4 0 857 383"
+              viewBox="4 -15 857 422"
               role="img"
               aria-label="Interactive circuit breaker diagram with an ammeter"
             >
@@ -2001,7 +1928,6 @@ export default function CircuitBreaker({ onBack }) {
         </section>
       </div>
     </main>
-    </AssetsContext.Provider>
   );
 }
 
