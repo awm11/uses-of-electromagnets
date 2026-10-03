@@ -14,10 +14,119 @@ const C = {
   metalDark: "#555c63",
 };
 
+function BatterySymbol() {
+  return (
+    <g transform="translate(730,50)" stroke={C.ink} strokeLinecap="round">
+      <text x="-14" y="-8" fontSize="20" fill={C.ink} stroke="none">
+        +
+      </text>
+      <line x1="0" y1="-20" x2="0" y2="20" strokeWidth="5" />
+      <line x1="9" y1="-10" x2="9" y2="10" strokeWidth="2.5" />
+      <line
+        x1="11"
+        y1="0"
+        x2="23"
+        y2="0"
+        stroke="#202020"
+        strokeWidth="1.5"
+        strokeDasharray="3 4"
+      />
+      <line x1="25" y1="-20" x2="25" y2="20" strokeWidth="5" />
+      <line x1="34" y1="-10" x2="34" y2="10" strokeWidth="2.5" />
+      <text x="42" y="-8" fontSize="14" fill={C.ink} stroke="none">
+        −
+      </text>
+    </g>
+  );
+}
+
+const DOOR_LOCK_SPRING = {
+  anchor: 184,
+  center: 330,
+  radius: 8,
+  turns: 6,
+  restingLength: 84,
+};
+
+function doorLockSpringGeometry(length) {
+  const { anchor, center, radius, turns } = DOOR_LOCK_SPRING;
+  const pitch = length / turns;
+  const point = (u) => [
+    anchor + ((u + Math.PI / 2) / (2 * Math.PI)) * pitch + 2 * Math.cos(u),
+    center + radius * Math.sin(u),
+  ];
+  const segment = (start, end) => {
+    let path = "";
+    for (let index = 0; index <= 8; index++) {
+      const [x, y] = point(start + ((end - start) * index) / 8);
+      path += `${index ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)} `;
+    }
+    return path;
+  };
+
+  let front = "";
+  let back = "";
+  for (let turn = 0; turn < turns; turn++) {
+    const base = 2 * Math.PI * turn;
+    front += segment(-Math.PI / 2 + base, Math.PI / 2 + base);
+    back += segment(Math.PI / 2 + base, (3 * Math.PI) / 2 + base);
+  }
+  return { front, back };
+}
+
+const DOOR_LOCK_SPRING_REST = doorLockSpringGeometry(
+  DOOR_LOCK_SPRING.restingLength
+);
+
+function DoorLockSpring({ boltRef }) {
+  const pathsRef = useRef({ back: [], front: [] });
+  const setPathRef = (layer, index) => (node) => {
+    pathsRef.current[layer][index] = node;
+  };
+
+  useEffect(() => {
+    let frame;
+    let lastLength = null;
+
+    const update = () => {
+      const bolt = boltRef.current;
+      const transform = bolt ? getComputedStyle(bolt).transform : "none";
+      const matrix = transform !== "none" ? new DOMMatrix(transform) : null;
+      const length = Math.max(
+        4,
+        DOOR_LOCK_SPRING.restingLength + (matrix ? matrix.m41 : 0)
+      );
+
+      if (length !== lastLength) {
+        lastLength = length;
+        const geometry = doorLockSpringGeometry(length);
+        pathsRef.current.back.forEach((path) => path?.setAttribute("d", geometry.back));
+        pathsRef.current.front.forEach((path) => path?.setAttribute("d", geometry.front));
+      }
+
+      frame = requestAnimationFrame(update);
+    };
+
+    update();
+    return () => cancelAnimationFrame(frame);
+  }, [boltRef]);
+
+  return (
+    <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <path ref={setPathRef("back", 0)} d={DOOR_LOCK_SPRING_REST.back} stroke="#374151" strokeWidth="5" />
+      <path ref={setPathRef("back", 1)} d={DOOR_LOCK_SPRING_REST.back} stroke="#6b7280" strokeWidth="3.2" />
+      <path ref={setPathRef("front", 0)} d={DOOR_LOCK_SPRING_REST.front} stroke="#374151" strokeWidth="5" />
+      <path ref={setPathRef("front", 1)} d={DOOR_LOCK_SPRING_REST.front} stroke="#9ca3af" strokeWidth="3.2" />
+      <path ref={setPathRef("front", 2)} d={DOOR_LOCK_SPRING_REST.front} stroke="#f3f4f6" strokeWidth="1" opacity="0.8" transform="translate(0 -0.8)" />
+    </g>
+  );
+}
+
 export function DoorLockPreview() {
   const [switchClosed, setSwitchClosed] = useState(false);
   const [currentOn, setCurrentOn] = useState(false);
   const [boltAttracted, setBoltAttracted] = useState(false);
+  const boltRef = useRef(null);
 
   useEffect(() => {
     let timers = [];
@@ -108,6 +217,28 @@ export function DoorLockPreview() {
       >
         <defs>
           <linearGradient
+            id="previewDoorGradient"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="0.35"
+          >
+            <stop offset="0%" stopColor="#c47743" />
+            <stop offset="48%" stopColor="#b5602f" />
+            <stop offset="100%" stopColor="#a6532b" />
+          </linearGradient>
+          <linearGradient
+            id="previewFrameGradient"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="0.2"
+          >
+            <stop offset="0%" stopColor="#884725" />
+            <stop offset="55%" stopColor="#71351c" />
+            <stop offset="100%" stopColor="#653018" />
+          </linearGradient>
+          <linearGradient
             id="previewIronBoltGradient"
             x1="0"
             y1="0"
@@ -142,7 +273,7 @@ export function DoorLockPreview() {
           y="40"
           width="135"
           height="590"
-          fill="#b5602f"
+          fill="url(#previewDoorGradient)"
         />
 
         <rect
@@ -159,7 +290,7 @@ export function DoorLockPreview() {
           y="20"
           width="34"
           height="300"
-          fill="#7a3a1d"
+          fill="url(#previewFrameGradient)"
         />
 
         <rect
@@ -167,7 +298,7 @@ export function DoorLockPreview() {
           y="318"
           width="34"
           height="300"
-          fill="#7a3a1d"
+          fill="url(#previewFrameGradient)"
         />
 
         <rect
@@ -175,26 +306,10 @@ export function DoorLockPreview() {
           y="-5"
           width="184"
           height="34"
-          fill="#7a3a1d"
+          fill="url(#previewFrameGradient)"
         />
 
-        {/* Spring */}
-        <g
-          style={{
-            transformOrigin: "184px 336px",
-            transform: `scaleX(${boltAttracted ? 1.84 : 1})`,
-            transition:
-              "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
-          }}
-        >
-          <path
-            d="M184,336 q7,-16 14,0 t14,0 t14,0 t14,0 t14,0 t14,0"
-            fill="none"
-            stroke="#333"
-            strokeWidth="5"
-            strokeLinecap="round"
-          />
-        </g>
+        <DoorLockSpring boltRef={boltRef} />
 
         {/* Main circuit */}
         <path
@@ -216,44 +331,7 @@ export function DoorLockPreview() {
           />
         )}
 
-        {/* Battery */}
-        <g transform="translate(730,50)">
-          <text
-            x="-14"
-            y="-8"
-            fontSize="20"
-            fill={C.ink}
-          >
-            +
-          </text>
-
-          <line
-            x1="0"
-            y1="-20"
-            x2="0"
-            y2="20"
-            stroke={C.ink}
-            strokeWidth="5"
-          />
-
-          <text
-            x="34"
-            y="-8"
-            fontSize="14"
-            fill={C.ink}
-          >
-            –
-          </text>
-
-          <line
-            x1="34"
-            y1="-10"
-            x2="34"
-            y2="10"
-            stroke={C.ink}
-            strokeWidth="2.5"
-          />
-        </g>
+        <BatterySymbol />
 
         {/* Battery to switch */}
         <path
@@ -357,6 +435,7 @@ export function DoorLockPreview() {
 
         {/* Iron bolt */}
         <g
+          ref={boltRef}
           style={{
             transform: `translateX(${boltAttracted ? 70 : 0}px)`,
             transition:
@@ -416,6 +495,9 @@ export default function DoorLock({ onBack }) {
   const [boltAttracted, setBoltAttracted] = useState(false);
   const [labelsOn, setLabelsOn] = useState(false);
   const [animating, setAnimating] = useState(false);
+  const [maximised, setMaximised] = useState(false);
+  const cardRef = useRef(null);
+  const boltRef = useRef(null);
 
   const timersRef = useRef([]);
 
@@ -432,6 +514,37 @@ export default function DoorLock({ onBack }) {
       clearTimers();
     };
   }, []);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) setMaximised(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setMaximised(false);
+    };
+
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
+  const toggleMaximise = () => {
+    if (maximised) {
+      setMaximised(false);
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      return;
+    }
+
+    setMaximised(true);
+    if (cardRef.current?.requestFullscreen) {
+      cardRef.current.requestFullscreen().catch(() => {});
+    }
+  };
 
   const handleToggle = () => {
     if (animating) return;
@@ -545,11 +658,68 @@ export default function DoorLock({ onBack }) {
         }
 
         .card {
+          position: relative;
           background: #fff;
           border: 1px solid #d9dee4;
           border-radius: 18px;
           box-shadow: 0 10px 28px rgba(31, 41, 55, .07);
           overflow: hidden;
+        }
+
+        .maxBtn {
+          position: absolute;
+          bottom: 76px;
+          right: 12px;
+          z-index: 2;
+          width: 48px;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #d9dee4;
+          border-radius: 8px;
+          background: #fff;
+          color: ${C.ink};
+          cursor: pointer;
+        }
+
+        .maxBtn:hover {
+          background: #eef1f5;
+        }
+
+        .maxBtn:focus-visible {
+          outline: 3px solid rgba(33, 102, 209, .3);
+          outline-offset: 2px;
+        }
+
+        .door-lock-switch-hit:focus,
+        .door-lock-switch-hit:focus-visible {
+          outline: none;
+        }
+
+        .card.max {
+          position: fixed;
+          inset: 0;
+          z-index: 1000;
+          display: flex;
+          flex-direction: column;
+          border: 0;
+          border-radius: 0;
+        }
+
+        .card.max .stage {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .card.max .stage svg {
+          width: 100%;
+          height: 100%;
+          max-width: none;
+          object-fit: contain;
         }
 
         .backRow {
@@ -609,6 +779,8 @@ export default function DoorLock({ onBack }) {
         }
 
         .toggle {
+          display: flex;
+          align-items: center;
           width: 54px;
           height: 30px;
           border-radius: 99px;
@@ -622,6 +794,8 @@ export default function DoorLock({ onBack }) {
         }
 
         .knob {
+          display: block;
+          flex: 0 0 24px;
           width: 24px;
           height: 24px;
           border-radius: 50%;
@@ -726,7 +900,23 @@ export default function DoorLock({ onBack }) {
           </p>
         </header>
 
-        <section className="card">
+        <section className={"card" + (maximised ? " max" : "")} ref={cardRef}>
+          <button
+            className="maxBtn"
+            onClick={toggleMaximise}
+            aria-label={maximised ? "Exit full screen" : "Maximise the simulation"}
+            title={maximised ? "Exit full screen (Esc)" : "Maximise"}
+          >
+            {maximised ? (
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path d="M6 1v5H1M10 15v-5h5M15 6h-5V1M1 10h5v5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path d="M1 6V1h5M15 10v5h-5M10 1h5v5M6 15H1v-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
           {onBack && (
             <div className="backRow">
               <button
@@ -748,6 +938,28 @@ export default function DoorLock({ onBack }) {
               <style>{keyframes}</style>
 
               <defs>
+                <linearGradient
+                  id="doorGradient"
+                  x1="0"
+                  y1="0"
+                  x2="1"
+                  y2="0.35"
+                >
+                  <stop offset="0%" stopColor="#c47743" />
+                  <stop offset="48%" stopColor="#b5602f" />
+                  <stop offset="100%" stopColor="#a6532b" />
+                </linearGradient>
+                <linearGradient
+                  id="frameGradient"
+                  x1="0"
+                  y1="0"
+                  x2="1"
+                  y2="0.2"
+                >
+                  <stop offset="0%" stopColor="#884725" />
+                  <stop offset="55%" stopColor="#71351c" />
+                  <stop offset="100%" stopColor="#653018" />
+                </linearGradient>
                 <linearGradient
                   id="ironBoltGradient"
                   x1="0"
@@ -775,6 +987,10 @@ export default function DoorLock({ onBack }) {
                   <stop offset="55%" stopColor="#d1d5db" />
                   <stop offset="100%" stopColor="#4b5563" />
                 </linearGradient>
+
+                <clipPath id="doorInsetClip">
+                  <rect x="68" y="277" width="67" height="40" rx="3" ry="3" />
+                </clipPath>
               </defs>
 
               {/* Door */}
@@ -783,16 +999,18 @@ export default function DoorLock({ onBack }) {
                 y="40"
                 width="135"
                 height="590"
-                fill="#b5602f"
+                fill="url(#doorGradient)"
               />
 
-              <rect
-                x="68"
-                y="277"
-                width="67"
-                height="40"
-                fill="#5a2c12"
-              />
+              <g clipPath="url(#doorInsetClip)">
+                <rect
+                  x="66"
+                  y="277"
+                  width="69"
+                  height="40"
+                  fill="#5a2c12"
+                />
+              </g>
 
               {/* Door frame */}
               <rect
@@ -800,7 +1018,7 @@ export default function DoorLock({ onBack }) {
                 y="20"
                 width="34"
                 height="300"
-                fill="#7a3a1d"
+                fill="url(#frameGradient)"
               />
 
               <rect
@@ -808,7 +1026,7 @@ export default function DoorLock({ onBack }) {
                 y="318"
                 width="34"
                 height="300"
-                fill="#7a3a1d"
+                fill="url(#frameGradient)"
               />
 
               <rect
@@ -816,26 +1034,10 @@ export default function DoorLock({ onBack }) {
                 y="-5"
                 width="184"
                 height="34"
-                fill="#7a3a1d"
+                fill="url(#frameGradient)"
               />
 
-              {/* Spring */}
-              <g
-                style={{
-                  transformOrigin: "184px 336px",
-                  transform: `scaleX(${boltAttracted ? 1.84 : 1})`,
-                  transition:
-                    "transform 1.5s cubic-bezier(.34,1.3,.4,1)",
-                }}
-              >
-                <path
-                  d="M184,336 q7,-16 14,0 t14,0 t14,0 t14,0 t14,0 t14,0"
-                  fill="none"
-                  stroke="#333"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                />
-              </g>
+              <DoorLockSpring boltRef={boltRef} />
 
               {/* Main circuit */}
               <path
@@ -857,44 +1059,7 @@ export default function DoorLock({ onBack }) {
                 />
               )}
 
-              {/* Battery */}
-              <g transform="translate(730,50)">
-                <text
-                  x="-14"
-                  y="-8"
-                  fontSize="20"
-                  fill={C.ink}
-                >
-                  +
-                </text>
-
-                <line
-                  x1="0"
-                  y1="-20"
-                  x2="0"
-                  y2="20"
-                  stroke={C.ink}
-                  strokeWidth="5"
-                />
-
-                <text
-                  x="34"
-                  y="-8"
-                  fontSize="14"
-                  fill={C.ink}
-                >
-                  –
-                </text>
-
-                <line
-                  x1="34"
-                  y1="-10"
-                  x2="34"
-                  y2="10"
-                  stroke={C.ink}
-                  strokeWidth="2.5"
-                />
-              </g>
+              <BatterySymbol />
 
               {/* Battery to switch */}
               <path
@@ -950,6 +1115,42 @@ export default function DoorLock({ onBack }) {
                 />
               </g>
 
+              <g>
+                {!switchClosed && !animating && (
+                  <circle
+                    cx="812"
+                    cy="175"
+                    r="27"
+                    fill="none"
+                    stroke="#d97706"
+                    strokeWidth="2"
+                    className="door-lock-switch-pulse"
+                  />
+                )}
+                <rect
+                  x="784"
+                  y="145"
+                  width="56"
+                  height="60"
+                  rx="12"
+                  fill="transparent"
+                  className="door-lock-switch-hit"
+                  role="switch"
+                  tabIndex={animating ? -1 : 0}
+                  aria-checked={switchClosed}
+                  aria-label="Door lock circuit switch"
+                  aria-disabled={animating}
+                  style={{ cursor: animating ? "default" : "pointer" }}
+                  onClick={handleToggle}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleToggle();
+                    }
+                  }}
+                />
+              </g>
+
               {/* Switch to solenoid */}
               <path
                 d="M812,200 V230 H701 V240"
@@ -960,30 +1161,15 @@ export default function DoorLock({ onBack }) {
 
               {currentOn && (
                 <path
-                  d="M812,200 V230 H701 V240"
+                  d="M812,150 V230 H701 V240"
                   fill="none"
-                  stroke="#6b7280"
+                  stroke="#ff3b30"
                   strokeWidth="3"
                   strokeLinecap="round"
                   strokeDasharray="9 15"
                   className="door-lock-flow"
                 />
               )}
-
-              {/* Magnetic field */}
-              <image
-                href={magneticFieldLines}
-                x="490"
-                y="205"
-                width="315"
-                height="185"
-                preserveAspectRatio="none"
-                style={{
-                  opacity: currentOn ? 0.45 : 0,
-                  transition: "opacity 0.1s ease",
-                  pointerEvents: "none",
-                }}
-              />
 
               {/* Solenoid */}
               <Solenoid
@@ -996,8 +1182,24 @@ export default function DoorLock({ onBack }) {
                 turns={10}
               />
 
+              {/* Magnetic field overlay: render above the solenoid */}
+              <image
+                href={magneticFieldLines}
+                x="490"
+                y="205"
+                width="330"
+                height="185"
+                preserveAspectRatio="none"
+                style={{
+                  opacity: currentOn ? 0.45 : 0,
+                  transition: "opacity 0.1s ease",
+                  pointerEvents: "none",
+                }}
+              />
+
               {/* Iron bolt */}
               <g
+                ref={boltRef}
                 style={{
                   transform: `translateX(${
                     boltAttracted ? 70 : 0
@@ -1060,7 +1262,7 @@ export default function DoorLock({ onBack }) {
               </text>
 
               <text
-                x="50"
+                x="10"
                 y="20"
                 fontSize="18"
                 fill={C.ink}
@@ -1101,12 +1303,14 @@ export default function DoorLock({ onBack }) {
               {currentOn && (
                 <text
                   x="660"
-                  y="130"
+                  y="116"
                   fontSize="22"
                   fill="#d97706"
                   fontWeight="600"
+                  textAnchor="middle"
                 >
-                  Current flowing!
+                  <tspan x="660">Current</tspan>
+                  <tspan x="660" dy="1.1em">flowing!</tspan>
                 </text>
               )}
 
@@ -1221,8 +1425,25 @@ const keyframes = `
   }
 
   .door-lock-flow {
+    stroke: #ff3b30 !important;
     stroke-dasharray: 9 15;
     stroke-dashoffset: 0;
     animation: doorLockDash 0.666667s linear infinite;
+  }
+
+  @keyframes doorLockSwitchPulse {
+    from { opacity: .95; transform: scale(1); }
+    to { opacity: 0; transform: scale(1.8); }
+  }
+
+  .door-lock-switch-pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: doorLockSwitchPulse 1.1s ease-out infinite;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .door-lock-switch-pulse { animation: none; opacity: .9; }
   }
 `;
