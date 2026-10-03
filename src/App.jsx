@@ -1,23 +1,100 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DoorLock, { DoorLockPreview } from "./door_lock.jsx";
 import RelaySwitch from "./relay_switch.jsx";
 import CircuitBreaker, { CircuitBreakerPreview } from "./circuit_breaker.jsx";
 import Loudspeaker, { LoudspeakerPreview } from "./loudspeaker.jsx";
+import ElectromagneticBell, { ElectromagneticBellPreview } from "./electromagnetic_bell.jsx";
 import BuyMeCoffeeButton from "./BuyMeCoffee.jsx";
 
-export default function App() {
-  const [page, setPage] = useState("home");
+/* ------------------------------------------------------------------
+   Deep links
 
-  const lessonCount = 4;
+   Every lesson has its own URL fragment, so a single simulation can be
+   linked to directly:
+
+     awm11.github.io/uses-of-electromagnets/#electric-bell
+
+   A leading slash is accepted too (#/electric-bell), so older links and
+   hand-typed ones both land in the right place.
+   ------------------------------------------------------------------ */
+
+const PAGE_SLUGS = {
+  doorlock: "door-lock",
+  relay: "relay",
+  circuitbreaker: "circuit-breaker",
+  loudspeaker: "loudspeaker",
+  bell: "electric-bell",
+};
+
+const SLUG_PAGES = Object.fromEntries(
+  Object.entries(PAGE_SLUGS).map(([page, slug]) => [slug, page])
+);
+
+const PAGE_TITLES = {
+  home: "Uses of electromagnets",
+  doorlock: "Door Lock • Uses of electromagnets",
+  relay: "Relay • Uses of electromagnets",
+  circuitbreaker: "Circuit Breaker • Uses of electromagnets",
+  loudspeaker: "Loudspeaker • Uses of electromagnets",
+  bell: "Electromagnetic Bell • Uses of electromagnets",
+};
+
+function pageFromHash() {
+  if (typeof window === "undefined") return "home";
+  // Strip the "#", then an optional "/", and any trailing slash
+  const slug = window.location.hash
+    .replace(/^#\/?/, "")
+    .replace(/\/$/, "")
+    .toLowerCase();
+  return SLUG_PAGES[slug] || "home";
+}
+
+export default function App() {
+  const [page, setPage] = useState(pageFromHash);
+
+  const lessonCount = 5;
   const showCoffeeAsCard = lessonCount % 3 !== 0;
 
+  // The URL is the source of truth: the back and forward buttons, a
+  // pasted link and a bookmark all arrive through one of these events.
+  useEffect(() => {
+    const sync = () => setPage(pageFromHash());
+    window.addEventListener("hashchange", sync);
+    window.addEventListener("popstate", sync);
+    return () => {
+      window.removeEventListener("hashchange", sync);
+      window.removeEventListener("popstate", sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.title = PAGE_TITLES[page] || PAGE_TITLES.home;
+  }, [page]);
+
   const openLesson = (lesson) => {
+    window.location.hash = PAGE_SLUGS[lesson];
     setPage(lesson);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const goHome = () => {
+    // pushState keeps the address bar clean (no dangling "#") and still
+    // leaves an entry, so Back returns to the lesson that was open.
+    if (window.history && window.history.pushState) {
+      window.history.pushState(
+        null,
+        "",
+        window.location.pathname + window.location.search
+      );
+    } else {
+      window.location.hash = "";
+    }
+    setPage("home");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const backButton = (
-    <button className="backButton" onClick={() => setPage("home")}>
+    <button className="backButton" onClick={goHome}>
       <span>←</span>
       Back to lessons
     </button>
@@ -55,6 +132,15 @@ export default function App() {
       <div className="app">
         {backButton}
         <Loudspeaker />
+      </div>
+    );
+  }
+
+  if (page === "bell") {
+    return (
+      <div className="app">
+        {backButton}
+        <ElectromagneticBell />
       </div>
     );
   }
@@ -216,6 +302,7 @@ export default function App() {
           background: #ffffff;
           color: #172033;
           text-align: left;
+          text-decoration: none;
           cursor: pointer;
           overflow: hidden;
           box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
@@ -383,6 +470,22 @@ export default function App() {
           color: #98a2b3;
           font-size: 13px;
           font-weight: 600;
+        }
+
+        /* Electromagnetic bell preview */
+
+        .bellIllustration {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          pointer-events: none;
+          background: #f1f3f5;
+        }
+
+        .bellIllustration > * {
+          width: 100%;
+          height: 100%;
         }
 
         /* Support card */
@@ -663,7 +766,7 @@ export default function App() {
           <h1>Uses of electromagnets</h1>
 
           <p>
-            Explore four everyday applications of electromagnets.
+            Explore five everyday applications of electromagnets.
           </p>
         </div>
       </header>
@@ -677,9 +780,13 @@ export default function App() {
         <div className="cards">
           {/* Door Lock */}
 
-          <button
+          <a
             className="lessonCard"
-            onClick={() => openLesson("doorlock")}
+            href={`#${PAGE_SLUGS.doorlock}`}
+            onClick={(e) => {
+              e.preventDefault();
+              openLesson("doorlock");
+            }}
           >
             <div className="cardTop">
               <span className="number">01</span>
@@ -706,13 +813,17 @@ export default function App() {
                 <span>→</span>
               </div>
             </div>
-          </button>
+          </a>
 
           {/* Relay */}
 
-          <button
+          <a
             className="lessonCard"
-            onClick={() => openLesson("relay")}
+            href={`#${PAGE_SLUGS.relay}`}
+            onClick={(e) => {
+              e.preventDefault();
+              openLesson("relay");
+            }}
           >
             <div className="cardTop">
               <span className="number">02</span>
@@ -740,13 +851,17 @@ export default function App() {
                 <span>→</span>
               </div>
             </div>
-          </button>
+          </a>
 
           {/* Circuit Breaker */}
 
-          <button
+          <a
             className="lessonCard"
-            onClick={() => openLesson("circuitbreaker")}
+            href={`#${PAGE_SLUGS.circuitbreaker}`}
+            onClick={(e) => {
+              e.preventDefault();
+              openLesson("circuitbreaker");
+            }}
           >
             <div className="cardTop">
               <span className="number">03</span>
@@ -772,13 +887,17 @@ export default function App() {
                 <span>→</span>
               </div>
             </div>
-          </button>
+          </a>
 
           {/* Loudspeaker */}
 
-          <button
+          <a
             className="lessonCard"
-            onClick={() => openLesson("loudspeaker")}
+            href={`#${PAGE_SLUGS.loudspeaker}`}
+            onClick={(e) => {
+              e.preventDefault();
+              openLesson("loudspeaker");
+            }}
           >
             <div className="cardTop">
               <span className="number">04</span>
@@ -804,14 +923,50 @@ export default function App() {
                 <span>→</span>
               </div>
             </div>
-          </button>
+          </a>
+
+          {/* Electromagnetic Bell */}
+
+          <a
+            className="lessonCard"
+            href={`#${PAGE_SLUGS.bell}`}
+            onClick={(e) => {
+              e.preventDefault();
+              openLesson("bell");
+            }}
+          >
+            <div className="cardTop">
+              <span className="number">05</span>
+              <span className="cardArrow">→</span>
+            </div>
+
+            <div className="cardIllustration bellIllustration">
+              <ElectromagneticBellPreview />
+            </div>
+
+            <div className="cardContent">
+              <div className="cardTag">SOUND</div>
+
+              <h3>Electromagnetic Bell</h3>
+
+              <p>
+                Discover how an electromagnet can make a bell ring
+                continuously by repeatedly breaking its own circuit.
+              </p>
+
+              <div className="openLesson">
+                Explore lesson
+                <span>→</span>
+              </div>
+            </div>
+          </a>
 
           {/* Buy Me a Coffee */}
 
           {showCoffeeAsCard && (
             <div className="lessonCard supportCard">
               <div className="cardTop">
-                <span className="number">05</span>
+                <span className="number">06</span>
               </div>
 
               <div className="cardIllustration supportCardIllustration">
