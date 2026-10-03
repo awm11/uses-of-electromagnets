@@ -1,12 +1,22 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import Solenoid from "./solenoid.jsx";
+import fieldImage from "./magneticFieldLines.png";
+import fieldImageMirrored from "./fieldLinesMirrored.png";
 
 /* ------------------------------------------------------------------
-   Optional assets: ./solenoid.jsx and ./magneticFieldLines.png
+   Assets: ./solenoid.jsx, ./magneticFieldLines.png and
+   ./fieldLinesMirrored.png
 
-   Loaded at runtime with a dynamic import (no import.meta). If a file
-   can't be loaded (e.g. here as a single-file artifact), the built-in
-   coil / no field overlay are used. On a local dev server (e.g. Vite)
-   where the files sit next to this one, the real ones are used.
+   These are imported statically, the same way the other pages do it,
+   so the bundler resolves them at build time and rewrites them to the
+   hashed files it emits.
+
+   They used to be pulled in at runtime with import(/* @vite-ignore *\/ path)
+   off a variable. That works on a dev server (which serves and compiles
+   the source files on request) but silently fails in a production build:
+   the bundler is told not to look at the import, so the files never make
+   it into the output and the request 404s at runtime. The catch block
+   then quietly swapped in the fallback coil and dropped the field lines.
    ------------------------------------------------------------------ */
 
 // Simple stand-in with the same props and lead positions as solenoid.jsx
@@ -77,60 +87,18 @@ function FallbackSolenoid({
   );
 }
 
-const AssetsContext = createContext({
-  Solenoid: FallbackSolenoid,
-  fieldImage: null,
-  fieldImageMirrored: null,
-});
+// FallbackSolenoid above is now only a safety net: it is used if the
+// solenoid module somehow resolves to nothing. It can be deleted.
+const ASSETS = {
+  Solenoid: Solenoid || FallbackSolenoid,
+  fieldImage: fieldImage || null,
+  fieldImageMirrored: fieldImageMirrored || null,
+};
 
-let assetsPromise = null;
-
-function loadOptionalAssets() {
-  if (!assetsPromise) {
-    // The "?url" makes a dev server return the image's URL as a module
-    const tryImport = (load) => {
-      try {
-        return load().then((m) => m.default, () => null);
-      } catch (e) {
-        return Promise.resolve(null);
-      }
-    };
-
-    // Paths are held in variables so a bundler doesn't try to resolve
-    // them at build time (which would fail if a file is missing)
-    const solenoidPath = "./solenoid.jsx";
-    const fieldPath = "./magneticFieldLines.png?url";
-    // Pre-flipped copy of the field lines, used for the reversed half of
-    // the AC cycle. If it isn't there, the plain image is mirrored in CSS.
-    const fieldMirroredPath = "./fieldLinesMirrored.png?url";
-
-    assetsPromise = Promise.all([
-      tryImport(() => import(/* @vite-ignore */ solenoidPath)),
-      tryImport(() => import(/* @vite-ignore */ fieldPath)),
-      tryImport(() => import(/* @vite-ignore */ fieldMirroredPath)),
-    ]).then(([RealSolenoid, fieldImage, fieldImageMirrored]) => ({
-      Solenoid: RealSolenoid || FallbackSolenoid,
-      fieldImage: fieldImage || null,
-      fieldImageMirrored: fieldImageMirrored || null,
-    }));
-  }
-  return assetsPromise;
-}
+const AssetsContext = createContext(ASSETS);
 
 function useOptionalAssets() {
-  const [assets, setAssets] = useState({
-    Solenoid: FallbackSolenoid,
-    fieldImage: null,
-    fieldImageMirrored: null,
-  });
-  useEffect(() => {
-    let alive = true;
-    loadOptionalAssets().then((a) => alive && setAssets(a));
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return assets;
+  return ASSETS;
 }
 
 const C = {
