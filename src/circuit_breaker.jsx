@@ -1940,7 +1940,7 @@ const keyframes = `
   /* Rusty red current animation (also overrides solenoid.jsx's blue) */
   .cb-flow,
   .solenoid-current-flow {
-    stroke: #b7410e !important;
+    stroke: #ff3b30 !important;
   }
 
   .cb-flow {

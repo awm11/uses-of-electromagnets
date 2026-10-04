@@ -7,7 +7,7 @@ const C = {
   blueLight: "#eaf3ff",
   red: "#d93a32",
   redLight: "#fff0ee",
-  copper: "#b86f32",
+  copper: "#c8662a",
   metal: "#8f969d",
   metalDark: "#555c63",
   muted: "#59636f",
@@ -74,6 +74,7 @@ export default function App({ preview = false }) {
 
         h1 {
           margin: 0;
+          color: ${C.ink};
           font-size: clamp(28px, 4vw, 40px);
           letter-spacing: -.04em;
         }
@@ -188,6 +189,7 @@ export default function App({ preview = false }) {
 
         .lessonBox h2 {
           margin: 0 0 7px;
+          color: ${C.ink};
           font-size: 15px;
         }
 
@@ -372,7 +374,7 @@ function RelayDiagram({ on }) {
 
   return (
     <svg
-      viewBox="0 0 1100 600"
+      viewBox="0 0 1130 600"
       role="img"
       aria-label="Interactive relay switch diagram"
     >
@@ -442,6 +444,42 @@ function RelayDiagram({ on }) {
             animation-delay: ${on ? "0s" : "0s"};
           }
 
+          .drop {
+            stroke-dasharray: 7 11;
+            animation: dropFall 0.45s linear infinite;
+          }
+
+          .steam {
+            transform-box: fill-box;
+            transform-origin: center;
+            opacity: 0;
+            animation: steamRise 3.8s ease-out infinite;
+          }
+
+          .heat-pulse {
+            animation: heatPulse 1.2s ease-in-out infinite;
+          }
+
+          @keyframes dropFall {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: -18; }
+          }
+
+          @keyframes steamRise {
+            0% { opacity: 0; transform: translate(0, 0) scale(.5); }
+            20% { opacity: .6; }
+            70% { opacity: .25; }
+            100% {
+              opacity: 0;
+              transform: translate(var(--dx, 0px), -135px) scale(2);
+            }
+          }
+
+          @keyframes heatPulse {
+            0%, 100% { opacity: .6; }
+            50% { opacity: 1; }
+          }
+
           .relay-delayed {
             animation: relayFadeIn .25s ease 0.3s both;
           }
@@ -463,7 +501,7 @@ function RelayDiagram({ on }) {
       <rect
         x="520"
         y="18"
-        width="562"
+        width="592"
         height="564"
         rx="10"
         fill={C.redLight}
@@ -508,7 +546,7 @@ function RelayDiagram({ on }) {
         <path
           d="M105 154 H270 V253.5 H330 M330 406 H290 V448 H105 V303 M105 280 V154"
           fill="none"
-          stroke="#6da0ec"
+          stroke="#c2dbff"
           strokeWidth="3.5"
           className="flow"
           markerEnd="url(#blueArrow)"
@@ -572,8 +610,9 @@ function RelayDiagram({ on }) {
       />
 
       <text
-        x="300"
-        y="112"
+        x="195"
+        y="186"
+        textAnchor="middle"
         fontSize="15"
         fontWeight="700"
         fill={C.ink}
@@ -610,7 +649,7 @@ function RelayDiagram({ on }) {
         <path
           d="M610 470 H675 V116 H930 V284 H970 V568 H555 V500 H535 V470"
           fill="none"
-          stroke="#ec7770"
+          stroke="#ffc4be"
           strokeWidth="3.5"
           className="flow"
           markerEnd="url(#redArrow)"
@@ -661,125 +700,311 @@ function RelayDiagram({ on }) {
         filter="url(#softShadow)"
         transform="translate(70 0)"
       >
+        <defs>
+          <radialGradient id="heatGlow" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="#ff9a4d" stopOpacity=".55" />
+            <stop offset="100%" stopColor="#ff5a1f" stopOpacity="0" />
+          </radialGradient>
+
+          <linearGradient id="showerBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#e9eef2" />
+          </linearGradient>
+
+          <filter id="glowBlur" x="-30%" y="-80%" width="160%" height="260%">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
+
+          <filter id="steamBlur" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="5" />
+          </filter>
+        </defs>
+
+        {/* Unit body */}
+
         <rect
           x="826"
           y="277"
           width="146"
           height="135"
           rx="14"
-          fill="#fff"
+          fill="url(#showerBody)"
+        />
+
+        {/* Control strip */}
+
+        <path
+          d="M826 291 Q826 277 840 277 H958 Q972 277 972 291 V303 H826 Z"
+          fill="#cfd6dc"
+        />
+
+        <rect
+          x="826"
+          y="277"
+          width="146"
+          height="135"
+          rx="14"
+          fill="none"
           stroke="#4b5563"
           strokeWidth="3"
         />
 
-        <rect
-          x="853"
-          y="307"
-          width="91"
-          height="73"
-          rx="9"
-          fill="#e6ebef"
-          stroke="#8c969f"
-          strokeWidth="2"
+        <line
+          x1="827"
+          y1="303"
+          x2="971"
+          y2="303"
+          stroke="#aab3bb"
+          strokeWidth="1.5"
         />
 
-        {/* Shower head */}
+        {/* Power lamp */}
 
-        <path
-          d="M900 307 V270 Q900 244 927 244 H956"
-          fill="none"
-          stroke="#555c63"
-          strokeWidth="9"
-          strokeLinecap="round"
+        <circle
+          cx="845"
+          cy="290"
+          r="5"
+          fill={on ? "#2d9b55" : "#a7afb8"}
+          stroke="#4b5563"
+          strokeWidth="1.5"
         />
-
-        <path
-          d="M956 244 Q986 244 986 270"
-          fill="none"
-          stroke="#555c63"
-          strokeWidth="9"
-          strokeLinecap="round"
-        />
-
-        {/* Falling water */}
 
         {on && (
-          <g className="relay-delayed">
-            {[952, 967, 982, 997].map((x, i) => (
-              <path
-                key={i}
-                d={`M${x} ${272 + (i % 2) * 2} v${25 + i * 4}`}
-                stroke="#3aa8df"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-              />
-            ))}
-          </g>
+          <circle
+            cx="845"
+            cy="290"
+            r="9"
+            fill="#2d9b55"
+            opacity=".3"
+            filter="url(#glowBlur)"
+          />
         )}
+
+        {/* Heating chamber window */}
+
+        <rect
+          x="844"
+          y="312"
+          width="110"
+          height="68"
+          rx="9"
+          fill={on ? "#2a2e35" : "#e6ebef"}
+          stroke="#8c969f"
+          strokeWidth="2"
+          style={{ transition: "fill .5s ease" }}
+        />
 
         {/* Heating element */}
 
         {on ? (
           <g className="relay-delayed">
-            <path
-              d="
-                M875 326
-                C880 316 885 316 890 326
-                S900 336 905 326
-                S915 316 920 326
-                S930 336 935 326
-              "
-              fill="none"
-              stroke="#e87532"
-              strokeWidth="5"
-              strokeLinecap="round"
+            <ellipse
+              cx="899"
+              cy="343"
+              rx="52"
+              ry="26"
+              fill="url(#heatGlow)"
             />
 
             <path
-              d="
-                M875 326
-                C880 316 885 316 890 326
-                S900 336 905 326
-                S915 316 920 326
-                S930 336 935 326
-              "
+              d="M852 343 H860 C865 327 871 327 876 343 S887 359 892 343 S903 327 908 343 S919 359 924 343 S935 327 940 343 H948"
               fill="none"
-              stroke="#ffd36a"
+              stroke="#ff7a2b"
+              strokeWidth="9"
+              strokeLinecap="round"
+              opacity=".6"
+              filter="url(#glowBlur)"
+              className="heat-pulse"
+            />
+
+            <path
+              d="M852 343 H860 C865 327 871 327 876 343 S887 359 892 343 S903 327 908 343 S919 359 924 343 S935 327 940 343 H948"
+              fill="none"
+              stroke="#ff6a2b"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+
+            <path
+              d="M852 343 H860 C865 327 871 327 876 343 S887 359 892 343 S903 327 908 343 S919 359 924 343 S935 327 940 343 H948"
+              fill="none"
+              stroke="#ffe08a"
               strokeWidth="2"
               strokeLinecap="round"
+              strokeLinejoin="round"
+              className="heat-pulse"
             />
 
             <text
-              x="898"
-              y="360"
+              x="899"
+              y="374"
               textAnchor="middle"
-              fontSize="11"
+              fontSize="10"
               fontWeight="800"
-              fill="#c85b25"
+              letterSpacing=".08em"
+              fill="#ffb27a"
             >
               HEATING
             </text>
           </g>
         ) : (
           <path
-            d="
-              M875 326
-              C880 316 885 316 890 326
-              S900 336 905 326
-              S915 316 920 326
-              S930 336 935 326
-            "
+            d="M852 343 H860 C865 327 871 327 876 343 S887 359 892 343 S903 327 908 343 S919 359 924 343 S935 327 940 343 H948"
             fill="none"
             stroke="#aeb6bd"
-            strokeWidth="4"
+            strokeWidth="5"
             strokeLinecap="round"
-            opacity=".65"
+            strokeLinejoin="round"
+            opacity=".75"
           />
+        )}
+
+        {/* Terminal screws */}
+
+        {[836, 962].map((x) => (
+          <circle
+            key={x}
+            cx={x}
+            cy="400"
+            r="3"
+            fill="#9aa3ab"
+            stroke="#5b636a"
+            strokeWidth="1"
+          />
+        ))}
+
+        {/* Water pipe and arm */}
+
+        <path
+          d="M900 277 V262 Q900 246 916 246 H986 Q1002 246 1002 258"
+          fill="none"
+          stroke="#3f464d"
+          strokeWidth="11"
+          strokeLinecap="round"
+        />
+
+        <path
+          d="M900 277 V262 Q900 246 916 246 H986 Q1002 246 1002 258"
+          fill="none"
+          stroke="#8f969d"
+          strokeWidth="7"
+          strokeLinecap="round"
+        />
+
+        <path
+          d="M904 262 Q904 250 916 250 H986"
+          fill="none"
+          stroke="#c9ced3"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          opacity=".8"
+        />
+
+        {/* Shower head */}
+
+        <g transform="translate(1002 256)">
+          <path
+            d="M-7 0 H7 L19 15 H-19 Z"
+            fill="#6b737b"
+            stroke="#3f464d"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+
+          <ellipse
+            cx="0"
+            cy="16"
+            rx="20"
+            ry="4.5"
+            fill="#4a5158"
+            stroke="#2f353a"
+            strokeWidth="1.5"
+          />
+
+          {[-12, -6, 0, 6, 12].map((x) => (
+            <circle
+              key={x}
+              cx={x}
+              cy="16.5"
+              r="1.3"
+              fill={on ? "#bfe6fa" : "#8c969f"}
+            />
+          ))}
+      </g>
+
+        {/* Water spray */}
+
+        {on && (
+          <g className="relay-delayed">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <line
+                key={i}
+                x1={1002 + (i - 2) * 6}
+                y1="274"
+                x2={1002 + (i - 2) * 11}
+                y2="398"
+                stroke="#3aa8df"
+                strokeWidth="3"
+                strokeLinecap="round"
+                className="drop"
+                style={{ animationDelay: `${i * -0.11}s` }}
+              />
+            ))}
+
+            {[0, 1, 2, 3].map((i) => (
+              <line
+                key={"m" + i}
+                x1={1002 + (i - 1.5) * 6}
+                y1="274"
+                x2={1002 + (i - 1.5) * 11}
+                y2="398"
+                stroke="#8fd2f2"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                opacity=".8"
+                className="drop"
+                style={{ animationDelay: `${i * -0.17 - 0.05}s` }}
+              />
+            ))}
+          </g>
+        )}
+
+        {/* Rising steam */}
+
+        {on && (
+          <g className="relay-delayed" filter="url(#steamBlur)">
+            {[
+              { x: 986, r: 12, dx: -10, d: 0 },
+              { x: 1002, r: 16, dx: 6, d: 0.45 },
+              { x: 1018, r: 13, dx: 18, d: 0.9 },
+              { x: 994, r: 15, dx: -4, d: 1.35 },
+              { x: 1010, r: 11, dx: 12, d: 1.8 },
+              { x: 1024, r: 14, dx: 26, d: 2.25 },
+              { x: 1000, r: 17, dx: 2, d: 2.7 },
+              { x: 980, r: 10, dx: -16, d: 3.15 },
+            ].map((p, i) => (
+              <circle
+                key={i}
+                cx={p.x}
+                cy="388"
+                r={p.r}
+                fill="#ffffff"
+                stroke="#cfd8df"
+                strokeWidth="1"
+                className="steam"
+                style={{
+                  "--dx": `${p.dx}px`,
+                  animationDelay: `${p.d}s`,
+                }}
+              />
+            ))}
+          </g>
         )}
       </g>
 
       <text
-        x="900"
+        x="897"
         y="434"
         fontSize="16"
         fontWeight="800"
@@ -796,43 +1021,79 @@ function RelayDiagram({ on }) {
 
       {/* RELAY MECHANISM */}
 
+      <defs>
+        <linearGradient id="rodGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#6c747b" />
+          <stop offset="35%" stopColor="#cdd2d7" />
+          <stop offset="65%" stopColor="#97a0a7" />
+          <stop offset="100%" stopColor="#59616a" />
+        </linearGradient>
+
+        <linearGradient id="copperGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#f0a06a" />
+          <stop offset="45%" stopColor="#c8662a" />
+          <stop offset="100%" stopColor="#8a3d12" />
+        </linearGradient>
+
+        <radialGradient id="pivotGrad" cx="38%" cy="35%" r="70%">
+          <stop offset="0%" stopColor="#d5dade" />
+          <stop offset="60%" stopColor="#8f969d" />
+          <stop offset="100%" stopColor="#4c535a" />
+        </radialGradient>
+      </defs>
+
       {/* RIGHT FIXED CONTACT ROD */}
 
-      <g>
+      <g filter="url(#softShadow)">
         <rect
-          x="597"
+          x="600"
           y="220"
-          width="16"
+          width="10"
           height="250"
-          rx="8"
-          fill={C.metal}
+          rx="5"
+          fill="url(#rodGrad)"
           stroke={C.metalDark}
           strokeWidth="2"
         />
+
+        <line
+          x1="604"
+          y1="232"
+          x2="604"
+          y2="440"
+          stroke="#ffffff"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          opacity=".5"
+        />
+
+        {/* copper contact tip */}
 
         <path
           d="
-            M596 220
-            A18 18 0 0 0 596 256
+            M599 220
+            A21 18 0 0 0 599 256
             Z
           "
-          fill={C.copper}
+          fill="url(#copperGrad)"
           stroke={C.metalDark}
           strokeWidth="2"
         />
 
         <path
-          d="M596 222 A16 16 0 0 0 596 254"
+          d="M599 222 A19 16 0 0 0 599 254"
           fill="none"
-          stroke="#d59658"
+          stroke="#f7b680"
           strokeWidth="3"
           strokeLinecap="round"
         />
+
       </g>
 
       {/* LEFT MOVING CONTACT ROD */}
 
       <g
+        filter="url(#softShadow)"
         style={{
           transformOrigin: "535px 470px",
           transform: `rotate(${on ? 4.5 : 0}deg)`,
@@ -840,40 +1101,55 @@ function RelayDiagram({ on }) {
         }}
       >
         <rect
-          x="527"
+          x="530"
           y="220"
-          width="16"
+          width="10"
           height="250"
-          rx="8"
-          fill={C.metal}
+          rx="5"
+          fill="url(#rodGrad)"
           stroke={C.metalDark}
           strokeWidth="2"
         />
+
+        <line
+          x1="534"
+          y1="232"
+          x2="534"
+          y2="440"
+          stroke="#ffffff"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          opacity=".5"
+        />
+
+        {/* copper contact tip */}
 
         <path
           d="
-            M543 220
-            A18 18 0 0 1 543 256
+            M541 220
+            A20 18 0 0 1 541 256
             Z
           "
-          fill={C.copper}
+          fill="url(#copperGrad)"
           stroke={C.metalDark}
           strokeWidth="2"
         />
 
         <path
-          d="M543 222 A16 16 0 0 1 543 254"
+          d="M541 222 A18 16 0 0 1 541 254"
           fill="none"
-          stroke="#d59658"
+          stroke="#f7b680"
           strokeWidth="3"
           strokeLinecap="round"
         />
+
+        {/* pivot */}
 
         <circle
           cx="535"
           cy="470"
           r="11"
-          fill={C.metalDark}
+          fill="url(#pivotGrad)"
           stroke={C.ink}
           strokeWidth="2"
         />
@@ -881,20 +1157,33 @@ function RelayDiagram({ on }) {
         <circle
           cx="535"
           cy="470"
-          r="4"
-          fill={C.metal}
+          r="4.5"
+          fill={C.metalDark}
+          stroke="#2f353a"
+          strokeWidth="1.5"
         />
+
       </g>
 
       {/* iron armature */}
 
       <g
+        filter="url(#softShadow)"
         style={{
           transformOrigin: "525px 180px",
           transform: `translateX(0px) rotate(${on ? -8 : 3}deg)`,
           transition: "transform .45s ease",
         }}
       >
+        <path
+          d="M410 180 H505 V330"
+          fill="none"
+          stroke="#4a5158"
+          strokeWidth="25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
         <path
           d="M410 180 H505 V330"
           fill="none"
@@ -907,18 +1196,33 @@ function RelayDiagram({ on }) {
         <path
           d="M410 180 H505 V330"
           fill="none"
-          stroke={C.metalDark}
-          strokeWidth="2"
+          stroke="#b9c0c6"
+          strokeWidth="12"
           strokeLinecap="round"
           strokeLinejoin="round"
+        />
+
+
+        {/* hinge */}
+
+        <circle
+          cx="505"
+          cy="180"
+          r="12"
+          fill="url(#pivotGrad)"
+          stroke={C.metalDark}
+          strokeWidth="2"
         />
 
         <circle
           cx="505"
           cy="180"
-          r="9"
+          r="5"
           fill={C.metalDark}
+          stroke="#2f353a"
+          strokeWidth="1.5"
         />
+
       </g>
 
       <text
@@ -958,15 +1262,6 @@ function RelayDiagram({ on }) {
         </>
       ) : (
         <>
-          <line
-            x1="548"
-            y1="238"
-            x2="556"
-            y2="238"
-            stroke="#ffffff"
-            strokeWidth="5"
-          />
-
           <text
             x="590"
             y="185"
