@@ -12,7 +12,7 @@ import BuyMeCoffeeButton from "./BuyMeCoffee.jsx";
    Every lesson has its own URL fragment, so a single simulation can be
    linked to directly:
 
-     awm11.github.io/uses-of-electromagnets/#electric-bell
+     alexmoorephysics.com/uses-of-electromagnets/#electric-bell
 
    A leading slash is accepted too (#/electric-bell), so older links and
    hand-typed ones both land in the right place.
@@ -752,7 +752,7 @@ export default function App() {
       <header className="simpleHeader">
         <a
           className="siteLogo"
-          href="https://awm11.github.io/"
+          href="/"
           aria-label="See other physics simulations"
         >
           <img src="favicon.svg" alt="" />
@@ -973,7 +973,7 @@ export default function App() {
                 <div className="supportCardContent">
                   <a
                     className="supportCardMainLogoLink"
-                    href="https://awm11.github.io/"
+                    href="/"
                     aria-label="See other physics simulations"
                   >
                     <img
