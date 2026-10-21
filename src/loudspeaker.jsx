@@ -50,6 +50,14 @@ const FIELD_LINES = [400, 409, 418, 427].flatMap((x) => [
 
 const COIL_WINDINGS = [406, 410, 414, 418, 422, 426, 430];
 
+// Part labels for the 2D speaker (shown with the "Labels" toggle). Each label has its
+// text position, anchor, and the point on the part that its leader line runs to.
+const PART_LABELS = [
+  { text: "Cone", x: 470, y: 210, anchor: "middle", from: [467, 216], to: [450, 294] },
+  { text: "Permanent magnet", x: 352, y: 322, anchor: "end", from: [357, 318], to: [383, 318] },
+  { text: "Coil", x: 352, y: 363, anchor: "end", from: [357, 359], to: [405, 359] },
+];
+
 const AIR_AMP = 5.5;
 
 const seededRandom = (seed) => () => {
@@ -459,6 +467,7 @@ function buildSpeaker() {
   const geos = [];
   const mats = [];
   const flex = [];
+  const solids = []; // meshes that can hide a label's anchor point
 
   const part = (parent, profile, color, o = {}) => {
     const pts = ensureCCW(profile);
@@ -496,6 +505,7 @@ function buildSpeaker() {
       m.castShadow = true;
       m.receiveShadow = true;
       parent.add(m);
+      solids.push(m);
       geos.push(m.geometry);
       if (o.flex) {
         m.geometry.userData.base = m.geometry.attributes.position.array.slice();
@@ -671,6 +681,44 @@ function buildSpeaker() {
   field.visible = false;
   spin.add(field);
 
+  // --- Part labels (shown with the "Labels" toggle) ---
+  // Each label has a few candidate anchor points on its part (on the cut faces either side
+  // of the wedge, or on surfaces seen through it); Speaker3D uses the first one the camera
+  // can see. Anchors on the moving group follow the cone and coil.
+  const at = (parent, r, y, phi) => {
+    const o = new THREE.Object3D();
+    o.position.set(r * Math.sin(phi), y, r * Math.cos(phi));
+    parent.add(o);
+    return o;
+  };
+  const labelAnchors = [
+    {
+      text: "Cone",
+      points: [
+        at(moving, 0.86, 0.99, Math.PI),
+        at(moving, 0.88, 0.98, PHI0),
+        at(moving, 0.88, 0.98, -PHI0),
+        at(moving, 0.86, 0.99, Math.PI / 2),
+        at(moving, 0.86, 0.99, -Math.PI / 2),
+      ],
+    },
+    {
+      text: "Coil",
+      points: [at(moving, 0.361, 0.451, PHI0), at(moving, 0.361, 0.451, -PHI0)],
+    },
+    {
+      text: "Permanent magnet",
+      points: [
+        at(spin, 0.75, 0.2, -PHI0),
+        at(spin, 0.75, 0.2, PHI0),
+        at(spin, 0.9, 0.27, -PHI0 - 0.4),
+        at(spin, 0.9, 0.27, PHI0 + 0.4),
+        at(spin, 0.9, 0.27, Math.PI / 2),
+        at(spin, 0.9, 0.27, -Math.PI / 2),
+      ],
+    },
+  ];
+
   const setField = (on) => {
     fieldMat.opacity += ((on ? 0.8 : 0) - fieldMat.opacity) * 0.15;
     field.visible = fieldMat.opacity > 0.02;
@@ -697,15 +745,17 @@ function buildSpeaker() {
     textures.forEach((t) => t.dispose());
   };
 
-  return { root, spin, moving, flexTo, setField, dispose };
+  return { root, spin, moving, flexTo, setField, dispose, labelAnchors, solids };
 }
 
-function Speaker3D({ signalRef, showField, active = true }) {
+function Speaker3D({ signalRef, showField, showLabels = false, active = true }) {
   const mountRef = useRef(null);
   const activeRef = useRef(true);
   activeRef.current = active;
   const showRef = useRef(false);
   showRef.current = showField;
+  const labelsRef = useRef(false);
+  labelsRef.current = showLabels;
 
   useEffect(() => {
     const el = mountRef.current;
@@ -805,6 +855,126 @@ function Speaker3D({ signalRef, showField, active = true }) {
     const speaker = buildSpeaker();
     scene.add(speaker.root);
 
+    // HTML labels drawn over the canvas, each with a leader line to its anchor point
+    const svgNS = "http://www.w3.org/2000/svg";
+    const labelLayer = document.createElement("div");
+    labelLayer.className = "labels3d";
+    const lineSvg = document.createElementNS(svgNS, "svg");
+    lineSvg.setAttribute("class", "labels3dLines");
+    labelLayer.appendChild(lineSvg);
+    el.appendChild(labelLayer);
+    const labels3d = speaker.labelAnchors.map((a) => {
+      const halo = document.createElementNS(svgNS, "line");
+      halo.setAttribute("stroke", "#fff");
+      halo.setAttribute("stroke-width", "4");
+      halo.setAttribute("stroke-opacity", "0.85");
+      halo.setAttribute("stroke-linecap", "round");
+      const line = document.createElementNS(svgNS, "line");
+      line.setAttribute("stroke", C.ink);
+      line.setAttribute("stroke-width", "1.4");
+      line.setAttribute("stroke-linecap", "round");
+      const dot = document.createElementNS(svgNS, "circle");
+      dot.setAttribute("r", "3");
+      dot.setAttribute("fill", C.ink);
+      dot.setAttribute("stroke", "#fff");
+      dot.setAttribute("stroke-width", "1.2");
+      const g = document.createElementNS(svgNS, "g");
+      g.append(halo, line, dot);
+      lineSvg.appendChild(g);
+      const tag = document.createElement("div");
+      tag.className = "label3d";
+      tag.textContent = a.text;
+      labelLayer.appendChild(tag);
+      g.style.opacity = "0";
+      tag.style.opacity = "0";
+      return { ...a, g, halo, line, dot, tag, alpha: 0, pick: null, seen: false };
+    });
+    const raycaster = new THREE.Raycaster();
+    const wp = new THREE.Vector3();
+    const ap = new THREE.Vector3();
+    const dir = new THREE.Vector3();
+    let labelFrame = 0;
+
+    const toScreen = (v, w, h) => {
+      const q = v.clone().project(camera);
+      return { x: ((q.x + 1) / 2) * w, y: ((1 - q.y) / 2) * h, front: q.z < 1 };
+    };
+
+    const updateLabels = () => {
+      const show = labelsRef.current;
+      if (!show && labels3d.every((l) => l.alpha < 0.01)) return;
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+
+      // Occlusion: every few frames, pick the first anchor the camera can see
+      if (show && labelFrame++ % 6 === 0) {
+        labels3d.forEach((l) => {
+          l.pick = null;
+          for (const p of l.points) {
+            p.getWorldPosition(wp);
+            dir.subVectors(wp, camera.position);
+            const dist = dir.length();
+            raycaster.set(camera.position, dir.normalize());
+            raycaster.far = dist + 0.1;
+            const hit = raycaster.intersectObjects(speaker.solids, false)[0];
+            if (!hit || hit.distance > dist - 0.03) {
+              l.pick = p;
+              break;
+            }
+          }
+          l.seen = !!l.pick;
+          if (l.pick) l.last = l.pick;
+        });
+      }
+
+      const placed = [];
+      const len = Math.max(34, Math.min(70, Math.min(w, h) * 0.16));
+      labels3d.forEach((l) => {
+        l.alpha += ((show && l.seen ? 1 : 0) - l.alpha) * 0.2;
+        const o = l.alpha.toFixed(3);
+        l.g.style.opacity = o;
+        l.tag.style.opacity = o;
+        const p = l.pick || l.last;
+        if (!p || l.alpha < 0.01) return;
+
+        p.getWorldPosition(wp);
+        ap.set(wp.x, 0, 0); // nearest point on the speaker's axis (world X)
+        const s = toScreen(wp, w, h);
+        const c = toScreen(ap, w, h);
+        let dx = s.x - c.x;
+        let dy = s.y - c.y;
+        const m = Math.hypot(dx, dy);
+        if (m < 1) {
+          dx = 0;
+          dy = -1;
+        } else {
+          dx /= m;
+          dy /= m;
+        }
+        const t = { x: s.x + dx * len, y: s.y + dy * len, dx, dy };
+        // keep labels from sitting on top of each other
+        placed.forEach((q) => {
+          if (Math.abs(t.x - q.x) < 110 && Math.abs(t.y - q.y) < 24) {
+            t.y = q.y + (t.y >= q.y ? 24 : -24);
+          }
+        });
+        placed.push(t);
+
+        [l.halo, l.line].forEach((ln) => {
+          ln.setAttribute("x1", s.x.toFixed(1));
+          ln.setAttribute("y1", s.y.toFixed(1));
+          ln.setAttribute("x2", t.x.toFixed(1));
+          ln.setAttribute("y2", t.y.toFixed(1));
+        });
+        l.dot.setAttribute("cx", s.x.toFixed(1));
+        l.dot.setAttribute("cy", s.y.toFixed(1));
+        const tx = dx < -0.35 ? "-100%" : dx > 0.35 ? "0%" : "-50%";
+        const ty = dy < -0.35 ? "-100%" : dy > 0.35 ? "0%" : "-50%";
+        l.tag.style.transform =
+          "translate(" + t.x.toFixed(1) + "px," + t.y.toFixed(1) + "px) translate(" + tx + "," + ty + ")";
+      });
+    };
+
     const resize = () => {
       const w = el.clientWidth;
       const h = el.clientHeight;
@@ -854,6 +1024,7 @@ function Speaker3D({ signalRef, showField, active = true }) {
       speaker.setField(showRef.current);
 
       renderer.render(scene, camera);
+      updateLabels();
       raf = requestAnimationFrame(loop);
     };
     loop();
@@ -866,6 +1037,7 @@ function Speaker3D({ signalRef, showField, active = true }) {
       canvas.removeEventListener("pointerup", onUp);
       canvas.removeEventListener("pointercancel", onUp);
       speaker.dispose();
+      if (labelLayer.parentNode === el) el.removeChild(labelLayer);
       envTex.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
@@ -889,6 +1061,8 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
 
   const [slow, setSlow] = useState(false);
   const [showField, setShowField] =
+    useState(false);
+  const [showLabels, setShowLabels] =
     useState(false);
 
   const slowRef = useRef(false);
@@ -1547,9 +1721,43 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
         }
 
         .speaker3d {
+          position: relative;
           width: 100%;
           height: 100%;
           cursor: grab;
+        }
+
+        .labels3d {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
+
+        .labels3dLines {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
+
+        .label3d {
+          position: absolute;
+          left: 0;
+          top: 0;
+          padding: 2px 9px;
+          border: 1px solid #c6ccd3;
+          border-radius: 99px;
+          background: rgba(255, 255, 255, 0.94);
+          color: ${C.ink};
+          font-size: 12px;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+
+        .viewer3d.max .label3d {
+          font-size: 15px;
+          padding: 3px 11px;
         }
 
         .speaker3d:active {
@@ -2470,6 +2678,61 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
               >
                 Current flows one way
               </text>
+
+              <g
+                style={{
+                  opacity: showLabels ? 1 : 0,
+                  transition: "opacity 0.3s ease",
+                  pointerEvents: "none",
+                }}
+                aria-hidden={!showLabels}
+              >
+                {PART_LABELS.map((l) => (
+                  <g key={l.text}>
+                    <line
+                      x1={l.from[0]}
+                      y1={l.from[1]}
+                      x2={l.to[0]}
+                      y2={l.to[1]}
+                      stroke="#fff"
+                      strokeWidth="4"
+                      strokeOpacity="0.85"
+                      strokeLinecap="round"
+                    />
+                    <line
+                      x1={l.from[0]}
+                      y1={l.from[1]}
+                      x2={l.to[0]}
+                      y2={l.to[1]}
+                      stroke={C.ink}
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx={l.to[0]}
+                      cy={l.to[1]}
+                      r="2.8"
+                      fill={C.ink}
+                      stroke="#fff"
+                      strokeWidth="1.2"
+                    />
+                    <text
+                      x={l.x}
+                      y={l.y}
+                      fontSize="15"
+                      fontWeight="700"
+                      fill={C.ink}
+                      textAnchor={l.anchor}
+                      stroke="#fff"
+                      strokeWidth="4"
+                      strokeLinejoin="round"
+                      paintOrder="stroke"
+                    >
+                      {l.text}
+                    </text>
+                  </g>
+                ))}
+              </g>
             </svg>
               {!disable3D && (
                 <div
@@ -2485,7 +2748,7 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
                         }
                   }
                 >
-                  <Speaker3D signalRef={signalRef} showField={showField} active={!minimised} />
+                  <Speaker3D signalRef={signalRef} showField={showField} showLabels={showLabels} active={!minimised} />
                   <span className="viewerLabel">
                     3D cutaway • drag to rotate
                   </span>
@@ -2512,6 +2775,17 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
                           <span className="knob" />
                         </span>
                         Magnetic field lines
+                      </button>
+
+                      <button
+                        className="switchBtn"
+                        onClick={() => setShowLabels((v) => !v)}
+                        aria-pressed={showLabels}
+                      >
+                        <span className={"toggle " + (showLabels ? "on" : "")}>
+                          <span className="knob" />
+                        </span>
+                        Labels
                       </button>
 
                       <button
@@ -2709,6 +2983,29 @@ export default function ACCircuit({ onBack, disableSound = false, disable3D = fa
                 </span>
 
                 Magnetic field lines
+              </button>
+
+              <button
+                className="switchBtn"
+                onClick={() =>
+                  setShowLabels(
+                    (v) => !v
+                  )
+                }
+                aria-pressed={showLabels}
+              >
+                <span
+                  className={
+                    "toggle " +
+                    (showLabels
+                      ? "on"
+                      : "")
+                  }
+                >
+                  <span className="knob" />
+                </span>
+
+                Labels
               </button>
             </div>
 
